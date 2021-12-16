@@ -31,13 +31,13 @@ library(plyr)
 library(dplyr)
 library(tidyverse)
 library(magrittr)
-library(OmnipathR)
 library(nichenetr)
 library(factoextra)
 library(elbow)
 library(ggsci)
 library(ComplexHeatmap)
 library(circlize)
+library(CellID)
 ```
 
 ### Read in the gene expression data
@@ -62,6 +62,9 @@ ifnb <- RunPCA(ifnb, verbose = F)
 ifnb <- FindNeighbors(ifnb, dims = 1:30, verbose = F)
 ifnb <- FindClusters(ifnb, verbose = F)
 ifnb <- RunUMAP(ifnb, dims = 1:30, verbose = F)
+
+#let's make one level of cell type calls less coarse
+ifnb$celltype.l1 <- mapvalues(ifnb)
 
 DimPlot(ifnb, label = T, repel = T) + NoLegend()
 DimPlot(ifnb, label = T, repel = T, group.by = "seurat_annotations") + NoLegend()
@@ -128,6 +131,30 @@ BuildSingleHeatmap(subseu@graphs$prior_interaction[1:500,1:500], seu = subseu, c
                    row.k = 8, col.k = 8)
 dev.off()
 ```
+
+
+
+```{r}
+ranked_genes <- crGeneSig(subseu, variant_features = VariableFeatures(subseu))
+subseu <- BuildPriorInteraction(subseu, database = "custom", 
+                                ligands = lr_data$source_genesymbol, recepts = lr_data$target_genesymbol,
+                                specific = T, ranked_genes = ranked_genes,
+                                graph_name = "specific_prior")
+
+BuildSingleHeatmap(subseu@graphs$specific_prior[1:500,1:500], seu = subseu, cell.type.calls = "seurat_annotations",
+                   row.k = 8, col.k = 8)
+
+sub_graph <- subseu@graphs$specific_prior[subseu$seurat_annotations=="CD14 Mono",subseu$seurat_annotations=="NK"]
+BuildSingleHeatmap(sub_graph, seu = subseu, cell.type.calls = "seurat_annotations",
+                   row.k = 8, col.k = 8)
+```
+
+Now we see much more structure and can start to identify groups of cells within these annotations that may have different modes of communication. 
+
+Now, we want to go a step further and integrate information about intracellular signaling pathways to predict which of these cell-cell communication edges are "active" and biologically important. We use the NicheNet package to achieve this, which ranks ligands that are most likely to result in an observed downstream gene signature. For the purpose of a single dataset, we define the gene 
+
+
+
 
 
 

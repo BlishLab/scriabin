@@ -1,8 +1,8 @@
-BuildPriorInteraction <- function (object, assay = "SCT", slot = "data", database = "fantom5", ligands = NULL, recepts = NULL, correct.depth = T) {
-  library(Seurat)
-  library(dplyr)
-  library(tibble)
-  library(plotrix)
+
+BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
+                                   database = "fantom5", ligands = NULL, recepts = NULL,
+                                   specific = F, ranked_genes = NULL,
+                                   correct.depth = T, graph_name = "prior_interaction") {
   if(database=="custom") {
     message("Using custom database")
     ligands <- ligands
@@ -21,7 +21,23 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data", databas
   ligands.use <- intersect(ligands, rownames(object@assays[[assay]]))
   recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
   genes.use = union(ligands.use, recepts.use)
-  cell.exprs <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,]) %>% rownames_to_column(var = "gene")
+
+  if(specific) {
+    message("Only considering genes in per-cell gene signature")
+    ranked_names <- lapply(ranked_genes, function(x) {
+      names(x)
+    })
+    ranked_mat <- as.matrix(reshape2::dcast(reshape2::melt(t(bind_rows(ranked_names))), formula = value~Var1) %>% column_to_rownames("value"))
+    genes.use <- intersect(genes.use,rownames(ranked_mat))
+    ranked_mat <- ranked_mat[genes.use,]
+    cell.exprs <- GetAssayData(object, assay = assay, slot = slot)[genes.use,]
+    cell.exprs[is.na(ranked_mat)] <- 0
+    cell.exprs <- as.data.frame(cell.exprs) %>% rownames_to_column(var = "gene")
+  }
+  else {
+    cell.exprs <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,]) %>% rownames_to_column(var = "gene")
+  }
+
   ligands.df <- data.frame(ligands)
   ligands.df$id <- 1:nrow(ligands.df)
   recepts.df <- data.frame(recepts)
@@ -38,12 +54,19 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data", databas
   targets <- colnames(object)
 
   message(paste("\nGenerating Interaction Matrix..."))
-  m <- outer (
-    cell.exprs.lig[,3:ncol(cell.exprs.lig)],     # First dimension:  the rows     (x)
-    cell.exprs.rec[,3:ncol(cell.exprs.rec)],     # Second dimension: the columns  (y)
-    Vectorize(function (x, y)   sum(sqrt(x*y),na.rm=T))
-    ## Rows represent "senders" and columns represent "receivers". Eg. m[1,2] is the interaction potential between cell #1 as a sender and cell #2 as a receiver.
-  )
+
+  a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+  a[is.na(a)] <- 0
+  b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
+  b[is.na(b)] <- 0
+  m <- crossprod(sqrt(a),sqrt(b))
+
+  # m <- outer (
+  #   cell.exprs.lig[,3:ncol(cell.exprs.lig)],     # First dimension:  the rows     (x)
+  #   cell.exprs.rec[,3:ncol(cell.exprs.rec)],     # Second dimension: the columns  (y)
+  #   Vectorize(function (x, y)   sum(x*y,na.rm=T))
+  #   ## Rows represent "senders" and columns represent "receivers". Eg. m[1,2] is the interaction potential between cell #1 as a sender and cell #2 as a receiver.
+  # )
 
   if(correct.depth) {
     message("Correcting for sequencing depth . . . ")
@@ -55,23 +78,25 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data", databas
     dimnames(results) <- dimnames(m)
 
     results <- as.Graph(results)
+    DefaultAssay(results) <- assay
   }
   else {
     results <- as.Graph(m)
+    DefaultAssay(results) <- assay
   }
 
-  object@graphs$prior_interaction <- results
+  object[[graph_name]] <- results
   return(object)
 }
 
 
+
+
+
 BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assay = "SCT", slot = "data",
                                       pearson.cutoff = 0.1, scale.factors = c(1.5,3),
-                                      database = "fantom5", ligands = NULL, recepts = NULL, correct.depth = T) {
-  library(Seurat)
-  library(dplyr)
-  library(tibble)
-  library(plotrix)
+                                      database = "fantom5", ligands = NULL, recepts = NULL,
+                                      correct.depth = T, graph_name = "weighted_interaction") {
   if(database=="custom") {
     message("Using custom database")
     ligands <- ligands
@@ -138,12 +163,19 @@ BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assa
   weighted.rec <- cbind(cell.exprs.rec.m[,1:3],final)
 
   message(paste("\nGenerating Interaction Matrix..."))
-  m <- outer (
-    cell.exprs.lig[,4:ncol(cell.exprs.lig)],     # First dimension:  the rows     (x)
-    weighted.rec[,4:ncol(weighted.rec)],     # Second dimension: the columns  (y)
-    Vectorize(function (x, y)   sum(x*y,na.rm=T))
-    ## Rows represent "senders" and columns represent "receivers". Eg. m[1,2] is the interaction potential between cell #1 as a sender and cell #2 as a receiver.
-  )
+  a <- as.matrix(cell.exprs.lig[,4:ncol(cell.exprs.lig)])
+  a[is.na(a)] <- 0
+  b <- as.matrix(weighted.rec[,4:ncol(weighted.rec)])
+  b[is.na(b)] <- 0
+  m <- crossprod(sqrt(a),sqrt(b))
+
+  #
+  # m <- outer (
+  #   cell.exprs.lig[,4:ncol(cell.exprs.lig)],     # First dimension:  the rows     (x)
+  #   weighted.rec[,4:ncol(weighted.rec)],     # Second dimension: the columns  (y)
+  #   Vectorize(function (x, y)   sum(x*y,na.rm=T))
+  #   ## Rows represent "senders" and columns represent "receivers". Eg. m[1,2] is the interaction potential between cell #1 as a sender and cell #2 as a receiver.
+  # )
 
   if(correct.depth) {
     message("Correcting for sequencing depth . . . ")
@@ -155,11 +187,14 @@ BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assa
     dimnames(results) <- dimnames(m)
 
     results <- as.Graph(results)
+    DefaultAssay(results) <- assay
   }
   else {
     results <- as.Graph(m)
+    DefaultAssay(results) <- assay
   }
-  object@graphs$weighted_interaction <- results
+
+  object[[graph_name]] <- results
   return(object)
 }
 
