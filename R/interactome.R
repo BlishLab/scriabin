@@ -1,7 +1,67 @@
-ExploreClusters <- function(seu, ranked_genes, clusters, send_cluster, rec_cluster, name = NULL, cell.type.calls = "celltype.l2", ident.label = NULL, ...) {
-  clusteranalyze.interactome <- GenerateInteractome(seu = seu, ranked_genes = ranked_genes,
-                                                    cluster_results = clusters, send_cluster = send_cluster, rec_cluster = rec_cluster,
-                                                    ident.label = ident.label, cell.type.calls = cell.type.calls, group.by = group.by, use_clusters = T)
+
+
+PrioritizeInteractome <- function(seu, gene_rankings, interactome = NULL,
+                                  min.pct = 0.05, assay.use = "RNA", slot.use = "counts",
+                                  send_cells = NULL, rec_cells = NULL) {
+  if(is.null(send_cells)) {
+    send_cells = unique(interactome$source)
+  }
+  if(is.null(rec_cells)) {
+    rec_cells = unique(interactome$receiver)
+  }
+
+  s.exprs <- GetAssayData(seu, assay = assay.use, slot = slot.use)[,send_cells]
+  r.exprs <- GetAssayData(seu, assay = assay.use, slot = slot.use)[,rec_cells]
+
+  s.expressed_genes <- rownames(s.exprs)[(Matrix::rowSums(s.exprs !=0)/ncol(s.exprs))>min.pct]
+  r.expressed_genes <- rownames(r.exprs)[(Matrix::rowSums(r.exprs !=0)/ncol(r.exprs))>min.pct]
+
+  background_expressed_genes <- r.expressed_genes %>% .[. %in% rownames(ligand_target_matrix)]
+  ligands = lr_network %>% pull(from) %>% unique()
+  receptors = lr_network %>% pull(to) %>% unique()
+  expressed_ligands = intersect(ligands,s.expressed_genes)
+  expressed_receptors = intersect(receptors,r.expressed_genes)
+  potential_ligands = lr_network %>% dplyr::filter(from %in% expressed_ligands & to %in% expressed_receptors) %>% pull(from) %>% unique()
+
+  gene_rankings = gene_rankings[names(gene_rankings) %in% rec_cells]
+  message("Beginning NicheNet")
+  nichenet.results <- pblapply(gene_rankings, function(x) {
+    activities <- predict_ligand_activities(geneset = names(x),
+                                            ligand_target_matrix = ligand_target_matrix,
+                                            potential_ligands = potential_ligands,
+                                            background_expressed_genes = background_expressed_genes)
+    best_upstream_ligands = activities %>%
+      top_n(20, pearson) %>%
+      arrange(-pearson) %>%
+      pull(test_ligand) %>%
+      unique()
+    active_ligand_target_links_df = best_upstream_ligands %>%
+      lapply(get_weighted_ligand_target_links,
+             geneset = names(x),
+             ligand_target_matrix = ligand_target_matrix, n = 200) %>%
+      bind_rows %>% drop_na()
+    return(list(activities,active_ligand_target_links_df))
+  })
+
+  return(nichenet.results)
+}
+
+
+ExploreClusters <- function(seu, ranked_genes, send_cells = NULL, rec_cells = NULL,
+                            clusters = NULL, send_cluster = NULL, rec_cluster = NULL,
+                            name = NULL, cell.type.calls = "celltype.l2",
+                            ident.label = NULL, ...) {
+  if(is.null(clusters)) {
+    clusteranalyze.interactome <- GenerateInteractome_new(seu = seu, ranked_genes = ranked_genes, send_cells = send_cells, rec_cells = rec_cells,
+                                                      ident.label = ident.label, cell.type.calls = cell.type.calls, group.by = group.by, use_clusters = F)
+
+  }
+  else {
+    clusteranalyze.interactome <- GenerateInteractome_new(seu = seu, ranked_genes = ranked_genes,
+                                                      cluster_results = clusters, send_cluster = send_cluster, rec_cluster = rec_cluster,
+                                                      ident.label = ident.label, cell.type.calls = cell.type.calls, group.by = group.by, use_clusters = T)
+
+  }
 
   nichenet.results_analyze <- PrioritizeInteractome(seu, ranked_genes, clusteranalyze.interactome)
   nn.ligands <- bind_rows(lapply(nichenet.results_analyze, function(x) {x[[1]]}), .id = "cell") %>%
@@ -32,7 +92,7 @@ ExploreClusters <- function(seu, ranked_genes, clusters, send_cluster, rec_clust
 
 
 GenerateInteractome <- function(seu, ranked_genes = ranked_genes, cluster_results = clusters,
-                                send_cluster = NULL, rec_cluster = NULL, ident.label = NULL, use_clusters = T,
+                                send_cluster = NULL, rec_cluster = NULL, ident.label = NULL, use_clusters = F,
                                 send_cells = NULL, rec_cells = NULL, cell.type.calls = "celltype.l2",
                                 assay.use = "SCT", slot.use = "data", group.by = "time.orig") {
   if(use_clusters) {
@@ -71,7 +131,7 @@ GenerateInteractome <- function(seu, ranked_genes = ranked_genes, cluster_result
   colnames(pairs) <- c("ligand","receptor")
 
   cell.exprs <- GetAssayData(seu, assay = assay.use, slot = slot.use)[rownames(seu) %in% c(unique(pairs$ligand),unique(pairs$receptor)),c(send_cells,rec_cells)]
-  cell.exprs <- cell.exprs[rowSums(cell.exprs)>0,]
+  cell.exprs <- cell.exprs[Matrix::rowSums(cell.exprs)>0,]
   # cell.exprs <- as.data.frame(cell.exprs) %>% rownames_to_column("gene")
   sources <- send_cells
   targets <- rec_cells
@@ -88,7 +148,7 @@ GenerateInteractome <- function(seu, ranked_genes = ranked_genes, cluster_result
     for (j in 1:length(targets)) {
       # pairs_use <- pairs[pairs$ligand %in% names(send_genes[[sources[i]]]) & pairs$receptor %in% names(rec_genes[[targets[j]]]),]
       cell.exprs_use <- cell.exprs[,c(sources[i],targets[j])]
-      cell.exprs_use <- as.data.frame(cell.exprs_use[rowSums(cell.exprs_use)>0,]) %>% rownames_to_column("gene")
+      cell.exprs_use <- as.data.frame(cell.exprs_use[Matrix::rowSums(cell.exprs_use)>0,]) %>% rownames_to_column("gene")
       pairs_use <- pairs %>%
         dplyr::filter(ligand %in% cell.exprs_use$gene) %>%
         dplyr::filter(receptor %in% cell.exprs_use$gene)
@@ -277,11 +337,11 @@ BuildWeightedInteraction_test <- function (object, nichenet_results = late1.nnr,
 
 
 
-GenerateInteractome_new <- function(seu, ranked_genes = ranked_genes, cluster_results = clusters,
+GeneratePrioritizedInteractome <- function(seu, ranked_genes = ranked_genes, cluster_results = clusters,
                                     send_cluster = NULL, rec_cluster = NULL, ident.label = NULL, use_clusters = T,
                                     send_cells = NULL, rec_cells = NULL, cell.type.calls = "celltype.l2",
                                     assay.use = "SCT", slot.use = "data", group.by = "time.orig",
-                                    nnr_oi_ligands) {
+                                    nichenet_results, pearson.cutoff = 0.075) {
   if(use_clusters) {
     if(!is.null(send_cells) | !is.null(rec_cells)) {
       stop("Cell names are supplied both through cluster results and send_cells/rec_cells.
@@ -302,14 +362,16 @@ GenerateInteractome_new <- function(seu, ranked_genes = ranked_genes, cluster_re
     message("Using explicitly supplied cell names")
   }
 
-  fantom5 <- Connectome::ncomms8866_human
-  lit.put <- fantom5[fantom5$Pair.Evidence %in% c("literature supported",
-                                                  "putative"), ]
-  pairs <- lit.put[,c(2,4)] %>% mutate_all(as.character)
+  "all" %<>% select_resource()
+  pairs <- as.data.frame(all[["OmniPath"]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+  # fantom5 <- Connectome::ncomms8866_human
+  # lit.put <- fantom5[fantom5$Pair.Evidence %in% c("literature supported",
+  #                                                 "putative"), ]
+  # pairs <- lit.put[,c(2,4)] %>% mutate_all(as.character)
   colnames(pairs) <- c("ligand","receptor")
 
   cell.exprs <- GetAssayData(seu, assay = assay.use, slot = slot.use)[rownames(seu) %in% c(unique(pairs$ligand),unique(pairs$receptor)),c(send_cells,rec_cells)]
-  cell.exprs <- cell.exprs[rowSums(cell.exprs)>0,]
+  cell.exprs <- cell.exprs[Matrix::rowSums(cell.exprs)>0,]
   # cell.exprs <- as.data.frame(cell.exprs) %>% rownames_to_column("gene")
   sources <- send_cells
   targets <- rec_cells
@@ -317,10 +379,12 @@ GenerateInteractome_new <- function(seu, ranked_genes = ranked_genes, cluster_re
   message(paste0(length(sources)," sources"))
   message(paste0(length(targets)," targets"))
 
+  nnr_oi_ligands <- bind_rows(lapply(nichenet_results, function(x) {x[[1]]}), .id = "cell") %>% dplyr::filter(pearson>pearson.cutoff)
+
   connectome <- bind_rows(pblapply(seq_along(1:length(sources)), function(i) {
     df <- bind_rows(lapply(seq_along(1:length(targets)), function(j) {
       cell.exprs_use <- cell.exprs[,c(sources[i],targets[j])]
-      cell.exprs_use <- as.data.frame(cell.exprs_use[rowSums(cell.exprs_use)>0,]) %>% rownames_to_column("gene")
+      cell.exprs_use <- as.data.frame(cell.exprs_use[Matrix::rowSums(cell.exprs_use)>0,]) %>% rownames_to_column("gene")
       pairs_use <- pairs %>%
         dplyr::filter(ligand %in% cell.exprs_use$gene) %>%
         dplyr::filter(receptor %in% cell.exprs_use$gene) %>%
@@ -356,6 +420,25 @@ GenerateInteractome_new <- function(seu, ranked_genes = ranked_genes, cluster_re
   connectome$edgeweight <- connectome$ligand.expression*connectome$recept.expression
   connectome <- connectome[connectome$edgeweight>0,]
 
-  connectome %<>% dplyr::filter(connectome$lig_geneset==T | connectome$rec_geneset==T)
+  connectome %<>% dplyr::filter(connectome$lig_geneset==T | connectome$rec_geneset==T) %>%
+    mutate(cell_ligand = paste(receiver,ligand,sep = "_"))
+
+  connectome$source_type <- mapvalues(connectome$source,
+                                      from = colnames(seu),
+                                      to = as.character(seu@meta.data[,cell.type.calls]),
+                                      warn_missing = F)
+  connectome$receiver_type <- mapvalues(connectome$receiver,
+                                      from = colnames(seu),
+                                      to = as.character(seu@meta.data[,cell.type.calls]),
+                                      warn_missing = F)
+
+  nnr_oi_targets <- bind_rows(lapply(nichenet_results, function(x) {x[[2]]}), .id = "cell") %>%
+    mutate(cell_ligand = paste(cell,ligand,sep = "_"))
+
+  connectome <- merge(connectome, nnr_oi_targets[,c("cell_ligand","target","weight")],by = "cell_ligand", all.x = T, all.y = F)
+
+  colnames(connectome)[colnames(connectome)=="weight"] <- "target_weight"
+  connectome$cell_ligand <- NULL
+
   return(connectome)
 }

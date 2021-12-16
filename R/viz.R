@@ -305,7 +305,11 @@ PrioritizeInteractome <- function(seu, gene_rankings, interactome,
 
 
 PlotAlluvium <- function(connectome, optimize.flows = T) {
-  connectome_plot <- connectome[,c("source_type","source","ligand","receptor","receiver","receiver_type","target","weight")]
+  # if(nrow(connectome)>1e5) {
+  #   connectome <- connectome %>% group_by(source,receiver,pair) %>% top_n(n=10,wt=target_weight)
+  # }
+
+  connectome_plot <- as.data.frame(connectome[,c("source_type","source","ligand","receptor","receiver","receiver_type","target","edgeweight")])
   colnames(connectome_plot) <- c("Sender\ncelltype","Sender\ncell","Ligand",
                                  "Receptor","Receiver\ncell","Receiver\ncelltype","Target\ngene","Weight")
   connectome_lodes <- to_lodes_form(connectome_plot, axes = 1:7, id = "Cohort")
@@ -320,7 +324,7 @@ PlotAlluvium <- function(connectome, optimize.flows = T) {
   unique_genes <- unique(c(connectome_plot$Ligand,
                            connectome_plot$Receptor,
                            connectome_plot$`Target
-                           gene`))
+gene`))
   gene_fill <- hue_pal()(length(unique_genes))
   names(gene_fill) <- unique_genes
   cells <- as.character(unique(connectome_lodes[connectome_lodes$x %in% c("Receiver\ncell","Sender\ncell"),"stratum"]))
@@ -352,7 +356,7 @@ PlotAlluvium <- function(connectome, optimize.flows = T) {
   #   connectome_lodes$Weight <- mapvalues(connectome_lodes$Cohort, from = wpc$Cohort, to = wpc$Weight)
   # }
 
-  connectome_lodes$Weight <- 1
+  # connectome_lodes$Weight <- 1
 
   if(optimize.flows) {
     message("Preparing data for networkD3 . . . ")
@@ -672,9 +676,13 @@ BuildSingleHeatmap <- function(interaction_graph, seu, name = "var_results",
   # time_results <- time_results[ro,co]
 
   message("Building Heatmap")
-  Heatmap(interaction_graph, show_row_names = F, show_column_names = F,
+  hm <- Heatmap(interaction_graph, show_row_names = F, show_column_names = F,
           name = "Interaction\nscore", top_annotation = ta, left_annotation = la, col = col_fun.use,
-          row_split = rowanno$celltype, column_split = colanno$celltype)
+          row_split = rowanno$celltype, column_split = colanno$celltype,
+          clustering_distance_rows = "euclidean", clustering_method_rows = "ward.D",
+          clustering_distance_columns = "euclidean", clustering_method_columns = "ward.D")
+
+  return(list(SCluster=row_grp,RCluster=col_grp,hm=hm))
 
 }
 

@@ -38,7 +38,24 @@ library(ggsci)
 library(ComplexHeatmap)
 library(circlize)
 library(CellID)
+library(ggalluvial)
+library(scales)
+library(networkD3)
+library(clipr)
+library(ggplot2)
+library(cowplot)
 ```
+
+### Load the NicheNet database
+
+```{r}
+ligand_target_matrix <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/Resources/NicheNet/ligand_target_matrix.rds")
+lr_network <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/Resources/NicheNet/lr_network.rds")
+weighted_networks <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/Resources/NicheNet/weighted_networks.rds")
+
+weighted_networks_lr = weighted_networks$lr_sig %>% inner_join(lr_network %>% distinct(from,to), by = c("from","to"))
+```
+
 
 ### Read in the gene expression data
 
@@ -89,7 +106,7 @@ unique(gsub(".*[=]([^.]+)[.].*", replacement = "\\1", colnames(ifnb)))
 This dataset is composed of two sub-datasets: one infected with LCMV, and the other injected with sterile saline (SS). In this vignette, we will focus on the analysis of a single dataset, so let's just look at the SS dataset. We will compare LCMV vs. SS in the comparative analysis vignette.
 
 ```{r}
-subseu <- subset(ifnb, cells = colnames(ifnb)[ifnb$stim=="CTRL"])
+subseu <- subset(ifnb, cells = colnames(ifnb)[ifnb$stim=="STIM"])
 ```
 
 ## Analyze single-cell resolution CCC in a single-dataset
@@ -122,17 +139,20 @@ lr_data <- all[["OmniPath"]]
 subseu <- BuildPriorInteraction(subseu, database = "custom", 
                                 ligands = lr_data$source_genesymbol, recepts = lr_data$target_genesymbol)
 
-#the number of row and column clusters can be automatically detected using the elbow method by omitting the row.k and col.k arguments. However, this takes some time with larger matrices.
-# BuildSingleHeatmap(subseu@graphs$prior_interaction, seu = subseu, cell.type.calls = "seurat_clusters",
-                   # row.k = 8, col.k = 8)
+# the number of row and column clusters can be automatically detected using the elbow method by omitting the row.k and col.k arguments. However, this takes some time with larger matrices.
 
-pdf("~/Downloads/test.pdf", height = 20, width = 20)
-BuildSingleHeatmap(subseu@graphs$prior_interaction[1:500,1:500], seu = subseu, cell.type.calls = "seurat_annotations",
-                   row.k = 8, col.k = 8)
-dev.off()
+# to avoid the cost in generating a heatmap for the full dataset, let's just take a peek at the first 500 cells.
+# BuildSingleHeatmap returns a list that contains the clustering results for the rows/column (for downstream analysis) and the heatmap object 
+hm <- BuildSingleHeatmap(subseu@graphs$prior_interaction[1:500,1:500], seu = subseu, 
+                         cell.type.calls = "seurat_annotations", row.k = 8, col.k = 8)
+hm$hm
 ```
 
+Some potentially interesting structure but not necessarily a ton. We hypothesize there may be broad and ubiquitous expression of adhesion molecule encoding genes that are less informative than cell-type specific ligand and receptor expression. 
 
+For the purpose of analyzing a single dataset we can define a single-cell gene signature as the top n% of variable genes a cell is closest to in linear dimensionality reduction space. We do this with a wrapper around the CellID package. 
+
+Then, we use this information in building an interaction matrix by specifying the `specific` argument in `BuildPriorInteraction`
 
 ```{r}
 ranked_genes <- crGeneSig(subseu, variant_features = VariableFeatures(subseu))
@@ -141,19 +161,65 @@ subseu <- BuildPriorInteraction(subseu, database = "custom",
                                 specific = T, ranked_genes = ranked_genes,
                                 graph_name = "specific_prior")
 
-BuildSingleHeatmap(subseu@graphs$specific_prior[1:500,1:500], seu = subseu, cell.type.calls = "seurat_annotations",
-                   row.k = 8, col.k = 8)
+#looking at first 500 cells
+hm <- BuildSingleHeatmap(subseu@graphs$specific_prior[1:500,1:500], seu = subseu, 
+                         cell.type.calls = "seurat_annotations", row.k = 8, col.k = 8)
+hm$hm
 
+#looking at CD14 Mono senders to NK cell receivers
 sub_graph <- subseu@graphs$specific_prior[subseu$seurat_annotations=="CD14 Mono",subseu$seurat_annotations=="NK"]
-BuildSingleHeatmap(sub_graph, seu = subseu, cell.type.calls = "seurat_annotations",
-                   row.k = 8, col.k = 8)
+hm <- BuildSingleHeatmap(sub_graph, seu = subseu, cell.type.calls = "seurat_annotations",
+                   row.k = 4, col.k = 3)
+hm$hm
 ```
 
-Now we see much more structure and can start to identify groups of cells within these annotations that may have different modes of communication. 
+Now we see more structure and can start to identify groups of cells within these annotations that may have different degrees of communication with different cell types. 
 
-Now, we want to go a step further and integrate information about intracellular signaling pathways to predict which of these cell-cell communication edges are "active" and biologically important. We use the NicheNet package to achieve this, which ranks ligands that are most likely to result in an observed downstream gene signature. For the purpose of a single dataset, we define the gene 
+Now, we want to go a step further and integrate information about intracellular signaling pathways to predict which of these cell-cell communication edges are "active" and biologically important. We use the NicheNet package to achieve this, which ranks ligands that are most likely to result in an observed downstream gene signature. 
 
+There are two approaches to this: 
+  1. Rank ligands and targets for all cells and build a weighted interaction matrix (slow)
+  2. Identify interesting groups of interacting cells and rank ligands and targets for those cells (faster)
+  
+Approach (1) is slow because of the recursive application of NicheNet functions, but code for this approach is shown below:
 
+```{r}
+# Not run
+# ranked_ligands_targets <- PrioritizeLigands(subseu, gene_rankings = ranked_genes)
+# subseu <- BuildWeightedInteraction(subseu, nichenet_results = ranked_ligands_targets,
+#                                    pearson.cutoff = 0.1, scale.factors = c(1.5, 3), database = "custom",
+#                                    ligands = lr_data$source_genesymbol, recepts = lr_data$target_genesymbol
+#                                    )
+# the pearson.cutoff argument specifies the minimum pearson value that will be considered an active ligand
+# the scale.factors argument specifies the degree to which active ligands will be weighted (least active ligand weighting, most active ligand weighting)
+```
+
+To illustrate approach (2) we can return to the heatmap generated above on CD14 monocyte senders and NK cell receivers
+
+```{r}
+#looking at CD14 Mono senders to NK cell receivers
+sub_graph <- subseu@graphs$specific_prior[subseu$seurat_annotations=="CD14 Mono",subseu$seurat_annotations=="CD16 Mono"]
+hm <- BuildSingleHeatmap(sub_graph, seu = subseu, cell.type.calls = "seurat_annotations",
+                   row.k = 6, col.k = 3)
+hm$hm
+```
+
+I want to know what's different about monocyte sending cluster 1 and NK receiving cluster 2. 
+
+```{r}
+senders = names(hm$SCluster)[hm$SCluster=="4"]
+receivers = names(hm$RCluster)[hm$RCluster=="3"]
+ranked_genes_sub <- ranked_genes[names(ranked_genes) %in% receivers]
+
+sub_ligands <- PrioritizeLigands(subseu, gene_rankings = ranked_genes_sub)
+interactome <- GeneratePrioritizedInteractome(seu = subseu, ranked_genes = ranked_genes,
+                                              send_cells = senders, rec_cells = receivers,
+                                              cell.type.calls = "seurat_annotations",
+                                              nichenet_results = sub_ligands, use_clusters = F)
+
+test <- interactome %>% group_by(source,receiver,pair) %>% top_n(n=1,wt=target_weight)
+PlotAlluvium(test)
+```
 
 
 
