@@ -1,0 +1,133 @@
+---
+title: "Analyze a single-dataset with Scriabin"
+author: "Aaron J. Wilk"
+date: "2021-12-15"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{single-dataset}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+In this vignette, we will analyze a cell-cell communication within a single dataset at single-cell resolution
+
+# Prepare Scriabin analysis
+
+## Load required packages and expression data
+
+### Load packages
+
+```{r setup}
+library(scriabin)
+library(Seurat)
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(magrittr)
+library(OmnipathR)
+library(nichenetr)
+library(factoextra)
+library(elbow)
+library(ggsci)
+library(ComplexHeatmap)
+library(circlize)
+```
+
+### Read in the gene expression data
+
+```{r}
+seu <- readRDS(url("https://drive.google.com/file/d/1HSrjmoyybfSRM4dDGURVyWDs9BG-XmyI/view?usp=sharing"))
+
+#using authors' cell type annotations
+DimPlot(seu, group.by = "celltype", label = T, repel = T) + NoLegend()
+DimPlot(seu, label = T, repel = T) + NoLegend()
+```
+
+```{r}
+library(SeuratData)
+InstallData("ifnb")
+
+ifnb <- UpdateSeuratObject(LoadData("ifnb"))
+
+ifnb <- PercentageFeatureSet(ifnb, pattern = "MT-", col.name = "percent.mt")
+ifnb <- SCTransform(ifnb, vars.to.regress = "percent.mt", verbose = F)
+ifnb <- RunPCA(ifnb, verbose = F)
+ifnb <- FindNeighbors(ifnb, dims = 1:30, verbose = F)
+ifnb <- FindClusters(ifnb, verbose = F)
+ifnb <- RunUMAP(ifnb, dims = 1:30, verbose = F)
+
+DimPlot(ifnb, label = T, repel = T) + NoLegend()
+DimPlot(ifnb, label = T, repel = T, group.by = "seurat_annotations") + NoLegend()
+DimPlot(ifnb, group.by = "stim")
+```
+
+
+### Rename cells
+
+One of the clunkier parts of Scriabin currently is that it relies on extracting the sample ID of interest from the cell name. Thus, cells must be named so that a gsub function can be applied to the name and return the sample ID. One example of this is shown below:
+
+```{r}
+sample_ids <- paste("project",ifnb$stim, sep = "=")
+new_cell_names <- paste(sample_ids, 1:ncol(ifnb), sep = ".")
+
+ifnb <- RenameCells(ifnb, new.names = new_cell_names)
+
+# in this example, the gsub pattern that can be used to extract the sample ID is: ".*[=]([^.]+)[.].*"
+unique(gsub(".*[=]([^.]+)[.].*", replacement = "\\1", colnames(ifnb)))
+```
+
+This dataset is composed of two sub-datasets: one infected with LCMV, and the other injected with sterile saline (SS). In this vignette, we will focus on the analysis of a single dataset, so let's just look at the SS dataset. We will compare LCMV vs. SS in the comparative analysis vignette.
+
+```{r}
+subseu <- subset(ifnb, cells = colnames(ifnb)[ifnb$stim=="CTRL"])
+```
+
+## Analyze single-cell resolution CCC in a single-dataset
+
+### Choose a ligand-receptor database to use
+
+Scriabin can support any list of ligand-receptor pairs. 17 different lig-rec databases can be loaded via the Liana package
+
+Here we use the mouse OmniPath database
+```{r}
+### currently, the SSL certificates for OmniPath are expired. Below is how we would download the mouse-specific OmniPath database. Instead, I will just convert human to mouse symbols
+# lr_data <- import_omnipath_interactions(organism = 10090, resources = "omnipath")
+
+# library(liana) # only needed since can't connect to OmniPath
+# "all" %<>% select_resource()
+# lr_data <- all[["OmniPath"]] %>%
+#   mutate(ligand = convert_human_to_mouse_symbols(source_genesymbol)) %>%
+#   mutate(receptor = convert_human_to_mouse_symbols(target_genesymbol)) %>%
+#   dplyr::filter(!is.na(ligand)) %>%
+#   dplyr::filter(!is.na(receptor))
+
+"all" %<>% select_resource()
+lr_data <- all[["OmniPath"]]
+```
+
+
+### Build a non-prioritized interaction graph
+
+```{r}
+subseu <- BuildPriorInteraction(subseu, database = "custom", 
+                                ligands = lr_data$source_genesymbol, recepts = lr_data$target_genesymbol)
+
+#the number of row and column clusters can be automatically detected using the elbow method by omitting the row.k and col.k arguments. However, this takes some time with larger matrices.
+# BuildSingleHeatmap(subseu@graphs$prior_interaction, seu = subseu, cell.type.calls = "seurat_clusters",
+                   # row.k = 8, col.k = 8)
+
+pdf("~/Downloads/test.pdf", height = 20, width = 20)
+BuildSingleHeatmap(subseu@graphs$prior_interaction[1:500,1:500], seu = subseu, cell.type.calls = "seurat_annotations",
+                   row.k = 8, col.k = 8)
+dev.off()
+```
+
+
+
