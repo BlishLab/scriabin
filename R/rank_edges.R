@@ -56,6 +56,19 @@ crGeneSig <- function(seu, variant_features = NULL, quantile_threshold = 0.1) {
   return(ranked_genes)
 }
 
+
+#' Title
+#'
+#' @param seu
+#' @param gene_rankings
+#' @param min.pct
+#' @param assay
+#' @param slot
+#'
+#' @return
+#' @export
+#'
+#' @examples
 PrioritizeLigands <- function(seu, gene_rankings = NULL, min.pct = 0.025, assay = "RNA", slot = "counts") {
   exprs <- GetAssayData(seu, assay = assay, slot = slot)
   expressed_genes <- rownames(exprs)[(Matrix::rowSums(exprs !=0)/ncol(exprs))>min.pct]

@@ -1,4 +1,13 @@
 
+#' Title
+#'
+#' @param interaction_graphs
+#' @param name
+#'
+#' @return
+#' @export
+#'
+#' @examples
 BuildRVHeatmap <- function(interaction_graphs, name = "rv_results") {
   interaction_graphs <- lapply(interaction_graphs, function(x) {x[[1]]})
   ig_ktab <- ktab.list.df(lapply(interaction_graphs,as.data.frame))
@@ -16,6 +25,20 @@ BuildRVHeatmap <- function(interaction_graphs, name = "rv_results") {
 }
 
 
+#' Title
+#'
+#' @param interaction_graphs
+#' @param seu
+#' @param name
+#' @param row.k
+#' @param col.k
+#' @param cell.type.calls
+#' @param cell.cols
+#'
+#' @return
+#' @export
+#'
+#' @examples
 BuildVarianceHeatmap <- function(interaction_graphs, seu, name = "var_results",
                                  row.k = NULL, col.k = NULL, cell.type.calls = "celltype.l2",
                                  cell.cols = NULL) {
@@ -162,6 +185,20 @@ BuildVarianceHeatmap <- function(interaction_graphs, seu, name = "var_results",
 
 
 
+#' Title
+#'
+#' @param interaction_graphs
+#' @param seu
+#' @param name
+#' @param ident.1
+#' @param ident.2
+#' @param row.k
+#' @param col.k
+#'
+#' @return
+#' @export
+#'
+#' @examples
 BuildCompHeatmap <- function(interaction_graphs, seu, name = "var_results", ident.1 = NULL, ident.2 = "pre",
                              row.k = NULL, col.k = NULL) {
   var_results <- abs(interaction_graphs[[ident.1]]-interaction_graphs[[ident.2]])
@@ -224,6 +261,16 @@ BuildCompHeatmap <- function(interaction_graphs, seu, name = "var_results", iden
 
 
 
+#' Title
+#'
+#' @param seu
+#' @param interactome
+#' @param subset.time
+#'
+#' @return
+#' @export
+#'
+#' @examples
 HighlightSR <- function(seu, interactome, subset.time = NULL) {
   if(!is.null(subset.time)) {
     seu <- subset(seu, cells = colnames(seu)[seu$time.orig==subset.time])
@@ -240,6 +287,14 @@ HighlightSR <- function(seu, interactome, subset.time = NULL) {
 
 
 
+#' Title
+#'
+#' @param connectome
+#'
+#' @return
+#' @export
+#'
+#' @examples
 PlotAlluviumLigRec <- function(connectome) {
   connectome_plot <- connectome[,c("source_type","source","ligand","receptor","target","target_type","weight")]
   colnames(connectome_plot) <- c("Sender\ncelltype","Sender\ncell","Ligand",
@@ -257,6 +312,21 @@ PlotAlluviumLigRec <- function(connectome) {
     theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) + labs(x = NULL)
 }
 
+#' Title
+#'
+#' @param seu
+#' @param gene_rankings
+#' @param interactome
+#' @param min.pct
+#' @param assay.use
+#' @param slot.use
+#' @param send_cells
+#' @param rec_cells
+#'
+#' @return
+#' @export
+#'
+#' @examples
 PrioritizeInteractome <- function(seu, gene_rankings, interactome,
                                   min.pct = 0.05, assay.use = "RNA", slot.use = "counts",
                                   send_cells = NULL, rec_cells = NULL) {
@@ -304,6 +374,15 @@ PrioritizeInteractome <- function(seu, gene_rankings, interactome,
 }
 
 
+#' Title
+#'
+#' @param connectome
+#' @param optimize.flows
+#'
+#' @return
+#' @export
+#'
+#' @examples
 PlotAlluvium <- function(connectome, optimize.flows = T) {
   # if(nrow(connectome)>1e5) {
   #   connectome <- connectome %>% group_by(source,receiver,pair) %>% top_n(n=10,wt=target_weight)
@@ -515,61 +594,20 @@ gene`))
 
 
 
-
-
-
-
-
-myDot <- function (object, assay = NULL, features, col.min = -2.5, col.max = 2.5, dot.min = 0, dot.scale = 6,
-                   idents = NULL, group.by = "animal.orig", split.by = "time.orig", cluster.idents = FALSE,
-                   scale = TRUE, scale.by = "radius", scale.min = NA, scale.max = NA, drop=T)
-{
-  assay <- assay %||% DefaultAssay(object = object)
-  DefaultAssay(object = object) <- assay
-  # split.colors <- !is.null(x = split.by) && !any(cols %in%
-  # rownames(x = brewer.pal.info))
-  scale.func <- switch(EXPR = scale.by, size = scale_size,
-                       radius = scale_radius, stop("'scale.by' must be either 'size' or 'radius'"))
-
-  cells <- unlist(x = CellsByIdentities(object = object, idents = idents))
-  data.features <- FetchData(object = object, vars = features,
-                             cells = cells)
-
-  exprs.agg <- aggregate(data.features, by = list(object@meta.data[,group.by],object@meta.data[,split.by]), FUN = function(x) mean(expm1(x)))
-  exprs.agg$merge <- paste(exprs.agg$Group.1,exprs.agg$Group.2,sep= "_")
-  pct.agg <- aggregate(data.features, by = list(object@meta.data[,group.by],object@meta.data[,split.by]), FUN = function(x) Seurat:::PercentAbove(x,threshold = 0))
-  pct.agg$merge <- paste(pct.agg$Group.1,pct.agg$Group.2,sep= "_")
-
-  merge.agg <- merge(exprs.agg,pct.agg[,c(3,4)],by = "merge")[,-1]
-  colnames(merge.agg) <- c(group.by,split.by,"exprs","pct")
-
-  if(drop) {
-    merge.agg[merge.agg[,group.by]=="late1" & merge.agg[,split.by]=="w01","exprs"] <- 0
-    merge.agg[merge.agg[,group.by]=="late1" & merge.agg[,split.by]=="w01","pct"] <- 0
-    merge.agg[merge.agg[,group.by]=="late2" & merge.agg[,split.by]=="w01","exprs"] <- 0
-    merge.agg[merge.agg[,group.by]=="late2" & merge.agg[,split.by]=="w01","pct"] <- 0
-  }
-  if(split.by=="time.orig") {
-    merge.agg$time.orig <- translateTimes(merge.agg$time.orig)
-  }
-  if(group.by=="animal.orig") {
-    merge.agg$animal.orig <- translateanimals(merge.agg$animal.orig)
-  }
-  merge.agg$pct <- merge.agg$pct*100
-  ggplot(data = merge.agg, mapping = aes_string(x = split.by, y = group.by)) +
-    geom_point(mapping = aes_string(size = "pct", color = "exprs")) +
-    scale.func(range = c(0, dot.scale), limits = c(scale.min, scale.max)) +
-    theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
-    guides(size = guide_legend(title = "Percent\nExpressed")) +
-    labs(x = "Time", y = "Animal", color = "Average\nExpression") + theme_cowplot() + rotate_x_text() +
-    # scale_color_gradient2(low = "blue", mid = "yellow", high = "red") +
-    scale_color_distiller(palette = "RdYlBu")
-
-}
-
-
-
-
+#' Title
+#'
+#' @param interaction_graph
+#' @param seu
+#' @param name
+#' @param row.k
+#' @param col.k
+#' @param cell.type.calls
+#' @param cell.cols
+#'
+#' @return
+#' @export
+#'
+#' @examples
 BuildSingleHeatmap <- function(interaction_graph, seu, name = "var_results",
                                row.k = NULL, col.k = NULL, cell.type.calls = "celltype.l2",
                                cell.cols = NULL) {
@@ -687,6 +725,19 @@ BuildSingleHeatmap <- function(interaction_graph, seu, name = "var_results",
 }
 
 
+#' Title
+#'
+#' @param interaction_graphs
+#' @param seu
+#' @param name
+#' @param row.k
+#' @param col.k
+#' @param cell.type.calls
+#'
+#' @return
+#' @export
+#'
+#' @examples
 BuildGranHeatmap <- function(interaction_graphs, seu, name = "var_results",
                              row.k = NULL, col.k = NULL, cell.type.calls = "celltype.l2") {
   resample <- function(x, ...) x[sample.int(length(x), ...)]
@@ -843,6 +894,15 @@ BuildGranHeatmap <- function(interaction_graphs, seu, name = "var_results",
 
 
 
+#' Title
+#'
+#' @param connectome
+#' @param optimize.flows
+#'
+#' @return
+#' @export
+#'
+#' @examples
 PlotAlluvium_nocells <- function(connectome, optimize.flows = T) {
   connectome_plot <- connectome[,c("source_type","ligand","receptor","receiver_type","target","weight")]
 

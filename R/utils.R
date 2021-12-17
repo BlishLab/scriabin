@@ -1,6 +1,26 @@
+
+#' Title
+#'
+#' @return
+#' @export
+#'
+#' @examples
 `%notin%` <- Negate(`%in%`)
+
+#' Title
+#'
+#' @return
+#' @export
+#'
+#' @examples
 resample <- function(x, ...) x[sample.int(length(x), ...)]
 
+#' Title
+#'
+#' @return
+#' @export
+#'
+#' @examples
 load_nichenet_database <- function() {
   f = readRDS(url("https://zenodo.org/record/3260758/files/ligand_target_matrix.rds"))
   assign("ligand_target_matrix", f, envir = .GlobalEnv)

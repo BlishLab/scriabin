@@ -1,6 +1,16 @@
 
 
 
+#' Title
+#'
+#' @param seu
+#' @param nsample
+#' @param interaction_graphs
+#'
+#' @return
+#' @export
+#'
+#' @examples
 LongPerturbedBins <- function(seu, nsample = 500, interaction_graphs = NULL) {
   nbin = length(unique(seu$bins))
   bin_combos <- expand.grid(1:nbin,1:nbin)
@@ -27,6 +37,16 @@ LongPerturbedBins <- function(seu, nsample = 500, interaction_graphs = NULL) {
   return(bin_pvals)
 }
 
+#' Title
+#'
+#' @param seu
+#' @param bin_pvals
+#' @param cell.type.calls
+#'
+#' @return
+#' @export
+#'
+#' @examples
 PerturbedBinSummary <- function(seu, bin_pvals, cell.type.calls = "celltype.l2") {
   bin_pvals_p <- unlist(lapply(bin_pvals, function(x) {x[1]}))
   bin_pvals_stat <- unlist(lapply(bin_pvals, function(x) {x[2]}))
@@ -70,6 +90,18 @@ PerturbedBinSummary <- function(seu, bin_pvals, cell.type.calls = "celltype.l2")
     labs(x = "Receiving celltype", y = "Sender celltype", color = "Number of\nperturbed\nbin pairs") + guides(size=F)
 }
 
+#' Title
+#'
+#' @param seu
+#' @param bin_pvals
+#' @param interaction_graphs
+#' @param split.by
+#' @param cell.type.calls
+#'
+#' @return
+#' @export
+#'
+#' @examples
 BinPostHoc <- function(seu, bin_pvals, interaction_graphs,
                        split.by = "time.orig", cell.type.calls = "celltype.l2") {
   nbin = length(unique(seu$bins))

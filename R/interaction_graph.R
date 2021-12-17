@@ -1,4 +1,21 @@
 
+#' Title
+#'
+#' @param object
+#' @param assay
+#' @param slot
+#' @param database
+#' @param ligands
+#' @param recepts
+#' @param specific
+#' @param ranked_genes
+#' @param correct.depth
+#' @param graph_name
+#'
+#' @return
+#' @export
+#'
+#' @examples
 BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
                                    database = "OmniPath", ligands = NULL, recepts = NULL,
                                    specific = F, ranked_genes = NULL,
@@ -96,6 +113,24 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
 
 
 
+#' Title
+#'
+#' @param object
+#' @param nichenet_results
+#' @param assay
+#' @param slot
+#' @param pearson.cutoff
+#' @param scale.factors
+#' @param database
+#' @param ligands
+#' @param recepts
+#' @param correct.depth
+#' @param graph_name
+#'
+#' @return
+#' @export
+#'
+#' @examples
 BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assay = "SCT", slot = "data",
                                       pearson.cutoff = 0.1, scale.factors = c(1.5,3),
                                       database = "OmniPath", ligands = NULL, recepts = NULL,
@@ -204,6 +239,17 @@ BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assa
   return(object)
 }
 
+#' Title
+#'
+#' @param seu
+#' @param by
+#' @param name
+#' @param split.by
+#'
+#' @return
+#' @export
+#'
+#' @examples
 AssembleInteractionGraphs <- function(seu, by = "weighted", name = "rv", split.by = "time.orig") {
   seu_split <- SplitObject(seu, split.by = split.by)
   if(by=="weighted") {

@@ -1,5 +1,20 @@
 
 
+#' Title
+#'
+#' @param seu
+#' @param gene_rankings
+#' @param interactome
+#' @param min.pct
+#' @param assay.use
+#' @param slot.use
+#' @param send_cells
+#' @param rec_cells
+#'
+#' @return
+#' @export
+#'
+#' @examples
 PrioritizeInteractome <- function(seu, gene_rankings, interactome = NULL,
                                   min.pct = 0.05, assay.use = "RNA", slot.use = "counts",
                                   send_cells = NULL, rec_cells = NULL) {
@@ -47,6 +62,24 @@ PrioritizeInteractome <- function(seu, gene_rankings, interactome = NULL,
 }
 
 
+#' Title
+#'
+#' @param seu
+#' @param ranked_genes
+#' @param send_cells
+#' @param rec_cells
+#' @param clusters
+#' @param send_cluster
+#' @param rec_cluster
+#' @param name
+#' @param cell.type.calls
+#' @param ident.label
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
 ExploreClusters <- function(seu, ranked_genes, send_cells = NULL, rec_cells = NULL,
                             clusters = NULL, send_cluster = NULL, rec_cluster = NULL,
                             name = NULL, cell.type.calls = "celltype.l2",
@@ -91,6 +124,27 @@ ExploreClusters <- function(seu, ranked_genes, send_cells = NULL, rec_cells = NU
 }
 
 
+#' Title
+#'
+#' @param seu
+#' @param ranked_genes
+#' @param cluster_results
+#' @param send_cluster
+#' @param rec_cluster
+#' @param ident.label
+#' @param use_clusters
+#' @param send_cells
+#' @param rec_cells
+#' @param cell.type.calls
+#' @param assay.use
+#' @param slot.use
+#' @param group.by
+#' @param database
+#'
+#' @return
+#' @export
+#'
+#' @examples
 GenerateInteractome <- function(seu, ranked_genes = ranked_genes, cluster_results = clusters,
                                 send_cluster = NULL, rec_cluster = NULL, ident.label = NULL, use_clusters = F,
                                 send_cells = NULL, rec_cells = NULL, cell.type.calls = "celltype.l2",
@@ -218,6 +272,18 @@ GenerateInteractome <- function(seu, ranked_genes = ranked_genes, cluster_result
 
 
 
+#' Title
+#'
+#' @param seu
+#' @param ranked_genes
+#' @param send_cells
+#' @param rec_cells
+#' @param name
+#'
+#' @return
+#' @export
+#'
+#' @examples
 ExploreInteractome <- function(seu, ranked_genes, send_cells, rec_cells, name = NULL) {
   clusteranalyze.interactome <- GenerateInteractome(seu, ranked_genes, use_clusters = F, send_cells = send_cells, rec_cells = rec_cells)
 
@@ -250,6 +316,22 @@ ExploreInteractome <- function(seu, ranked_genes, send_cells, rec_cells, name = 
 
 
 
+#' Title
+#'
+#' @param object
+#' @param nichenet_results
+#' @param assay
+#' @param slot
+#' @param pearson.cutoff
+#' @param scale.factors
+#' @param database
+#' @param ligands
+#' @param recepts
+#'
+#' @return
+#' @export
+#'
+#' @examples
 BuildWeightedInteraction_test <- function (object, nichenet_results = late1.nnr, assay = "SCT", slot = "data",
                                            pearson.cutoff = 0.1, scale.factors = c(1.5,3),
                                            database = "fantom5", ligands = NULL, recepts = NULL) {
@@ -349,6 +431,29 @@ BuildWeightedInteraction_test <- function (object, nichenet_results = late1.nnr,
 
 
 
+#' Title
+#'
+#' @param seu
+#' @param ranked_genes
+#' @param cluster_results
+#' @param send_cluster
+#' @param rec_cluster
+#' @param ident.label
+#' @param use_clusters
+#' @param send_cells
+#' @param rec_cells
+#' @param cell.type.calls
+#' @param assay.use
+#' @param slot.use
+#' @param group.by
+#' @param nichenet_results
+#' @param pearson.cutoff
+#' @param database
+#'
+#' @return
+#' @export
+#'
+#' @examples
 GeneratePrioritizedInteractome <- function(seu, ranked_genes = ranked_genes, cluster_results = clusters,
                                     send_cluster = NULL, rec_cluster = NULL, ident.label = NULL, use_clusters = T,
                                     send_cells = NULL, rec_cells = NULL, cell.type.calls = "celltype.l2",
