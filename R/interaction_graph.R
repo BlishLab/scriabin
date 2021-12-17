@@ -1,22 +1,25 @@
 
 BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
-                                   database = "fantom5", ligands = NULL, recepts = NULL,
+                                   database = "OmniPath", ligands = NULL, recepts = NULL,
                                    specific = F, ranked_genes = NULL,
                                    correct.depth = T, graph_name = "prior_interaction") {
   if(database=="custom") {
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
-    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, ligand_name = ligands, recepts = recepts)
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
   }
   else {
-    message("Using fantom5")
-    fantom5 <- Connectome::ncomms8866_human
-    # object <- subset(object, cells = colnames(object)[object$time.orig %in% tps])
-    lit.put <- fantom5[fantom5$Pair.Evidence %in% c("literature supported",
-                                                    "putative"), ]
-    ligands <- as.character(lit.put[, 2])
-    recepts <- as.character(lit.put[, 4])
+    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    if(database %notin% names(all)) {
+      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    }
+    message(paste("Using database",database))
+    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    lit.put <- pairs %>% mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    ligands <- as.character(lit.put[, "source_genesymbol"])
+    recepts <- as.character(lit.put[, "target_genesymbol"])
   }
   ligands.use <- intersect(ligands, rownames(object@assays[[assay]]))
   recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
@@ -95,22 +98,25 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
 
 BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assay = "SCT", slot = "data",
                                       pearson.cutoff = 0.1, scale.factors = c(1.5,3),
-                                      database = "fantom5", ligands = NULL, recepts = NULL,
+                                      database = "OmniPath", ligands = NULL, recepts = NULL,
                                       correct.depth = T, graph_name = "weighted_interaction") {
   if(database=="custom") {
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
-    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, ligand_name = ligands, recepts = recepts)
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
   }
   else {
-    message("Using fantom5")
-    fantom5 <- Connectome::ncomms8866_human
-    # object <- subset(object, cells = colnames(object)[object$time.orig %in% tps])
-    lit.put <- fantom5[fantom5$Pair.Evidence %in% c("literature supported",
-                                                    "putative"), ]
-    ligands <- as.character(lit.put[, 2])
-    recepts <- as.character(lit.put[, 4])
+    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    if(database %notin% names(all)) {
+      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    }
+    message(paste("Using database",database))
+    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    lit.put <- pairs %>% mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    ligands <- as.character(lit.put[, "source_genesymbol"])
+    recepts <- as.character(lit.put[, "target_genesymbol"])
   }
   ligands.use <- intersect(ligands, rownames(object@assays[[assay]]))
   recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
@@ -119,7 +125,7 @@ BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assa
   ligands.df <- data.frame(lit.put[, c(1,2)]) %>% mutate_all(as.character)
   colnames(ligands.df) <- c("pair","ligands")
   ligands.df$id <- 1:nrow(ligands.df)
-  recepts.df <- data.frame(lit.put[, c(1,4)]) %>% mutate_all(as.character)
+  recepts.df <- data.frame(lit.put[, c(1,3)]) %>% mutate_all(as.character)
   colnames(recepts.df) <- c("pair","recepts")
   recepts.df$id <- 1:nrow(recepts.df)
   cell.exprs.rec <- merge(recepts.df, cell.exprs,
@@ -142,7 +148,7 @@ BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assa
   test <- reshape2::melt(test %>% rownames_to_column(var = "cell")) %>% dplyr::filter(value>pearson.cutoff)
   colnames(test) <- c("cell","ligand","pearson")
   test$weight_factor <- scales::rescale(test$pearson, scale.factors)
-  int.to.merge <- lit.put[,c(1,2,4)]
+  int.to.merge <- lit.put[,c(1,2,3)]
   colnames(int.to.merge) <- c("pair","ligand","recepts")
   test <- merge(test,int.to.merge,by = "ligand", all.x=T)
   test <- test[!is.na(test$recepts),]

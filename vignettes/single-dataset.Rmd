@@ -49,11 +49,7 @@ library(cowplot)
 ### Load the NicheNet database
 
 ```{r}
-ligand_target_matrix <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/Resources/NicheNet/ligand_target_matrix.rds")
-lr_network <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/Resources/NicheNet/lr_network.rds")
-weighted_networks <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/Resources/NicheNet/weighted_networks.rds")
-
-weighted_networks_lr = weighted_networks$lr_sig %>% inner_join(lr_network %>% distinct(from,to), by = c("from","to"))
+load_nichenet_database()
 ```
 
 
@@ -110,27 +106,6 @@ subseu <- subset(ifnb, cells = colnames(ifnb)[ifnb$stim=="STIM"])
 ```
 
 ## Analyze single-cell resolution CCC in a single-dataset
-
-### Choose a ligand-receptor database to use
-
-Scriabin can support any list of ligand-receptor pairs. 17 different lig-rec databases can be loaded via the Liana package
-
-Here we use the mouse OmniPath database
-```{r}
-### currently, the SSL certificates for OmniPath are expired. Below is how we would download the mouse-specific OmniPath database. Instead, I will just convert human to mouse symbols
-# lr_data <- import_omnipath_interactions(organism = 10090, resources = "omnipath")
-
-# library(liana) # only needed since can't connect to OmniPath
-# "all" %<>% select_resource()
-# lr_data <- all[["OmniPath"]] %>%
-#   mutate(ligand = convert_human_to_mouse_symbols(source_genesymbol)) %>%
-#   mutate(receptor = convert_human_to_mouse_symbols(target_genesymbol)) %>%
-#   dplyr::filter(!is.na(ligand)) %>%
-#   dplyr::filter(!is.na(receptor))
-
-"all" %<>% select_resource()
-lr_data <- all[["OmniPath"]]
-```
 
 
 ### Build a non-prioritized interaction graph

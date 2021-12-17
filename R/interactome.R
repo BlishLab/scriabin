@@ -94,7 +94,7 @@ ExploreClusters <- function(seu, ranked_genes, send_cells = NULL, rec_cells = NU
 GenerateInteractome <- function(seu, ranked_genes = ranked_genes, cluster_results = clusters,
                                 send_cluster = NULL, rec_cluster = NULL, ident.label = NULL, use_clusters = F,
                                 send_cells = NULL, rec_cells = NULL, cell.type.calls = "celltype.l2",
-                                assay.use = "SCT", slot.use = "data", group.by = "time.orig") {
+                                assay.use = "SCT", slot.use = "data", group.by = "time.orig", database = "OmniPath") {
   if(use_clusters) {
     if(!is.null(send_cells) | !is.null(rec_cells)) {
       stop("Cell names are supplied both through cluster results and send_cells/rec_cells.
@@ -124,10 +124,22 @@ GenerateInteractome <- function(seu, ranked_genes = ranked_genes, cluster_result
   # recept_use = unique(names(unlist(rec_genes)))
   # names(rec_genes) <- rec_cells
 
-  fantom5 <- Connectome::ncomms8866_human
-  lit.put <- fantom5[fantom5$Pair.Evidence %in% c("literature supported",
-                                                  "putative"), ]
-  pairs <- lit.put[,c(2,4)] %>% mutate_all(as.character)
+  if(database=="custom") {
+    message("Using custom database")
+    ligands <- ligands
+    recepts <- recepts
+    pairs <- data.frame(ligands = ligands, recepts = recepts)
+  }
+  else {
+    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    if(database %notin% names(all)) {
+      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    }
+    message(paste("Using database",database))
+    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    ligands <- as.character(lit.put[, "source_genesymbol"])
+    recepts <- as.character(lit.put[, "target_genesymbol"])
+  }
   colnames(pairs) <- c("ligand","receptor")
 
   cell.exprs <- GetAssayData(seu, assay = assay.use, slot = slot.use)[rownames(seu) %in% c(unique(pairs$ligand),unique(pairs$receptor)),c(send_cells,rec_cells)]
@@ -341,7 +353,7 @@ GeneratePrioritizedInteractome <- function(seu, ranked_genes = ranked_genes, clu
                                     send_cluster = NULL, rec_cluster = NULL, ident.label = NULL, use_clusters = T,
                                     send_cells = NULL, rec_cells = NULL, cell.type.calls = "celltype.l2",
                                     assay.use = "SCT", slot.use = "data", group.by = "time.orig",
-                                    nichenet_results, pearson.cutoff = 0.075) {
+                                    nichenet_results, pearson.cutoff = 0.075, database = "OmniPath") {
   if(use_clusters) {
     if(!is.null(send_cells) | !is.null(rec_cells)) {
       stop("Cell names are supplied both through cluster results and send_cells/rec_cells.
@@ -362,12 +374,22 @@ GeneratePrioritizedInteractome <- function(seu, ranked_genes = ranked_genes, clu
     message("Using explicitly supplied cell names")
   }
 
-  "all" %<>% select_resource()
-  pairs <- as.data.frame(all[["OmniPath"]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-  # fantom5 <- Connectome::ncomms8866_human
-  # lit.put <- fantom5[fantom5$Pair.Evidence %in% c("literature supported",
-  #                                                 "putative"), ]
-  # pairs <- lit.put[,c(2,4)] %>% mutate_all(as.character)
+  if(database=="custom") {
+    message("Using custom database")
+    ligands <- ligands
+    recepts <- recepts
+    pairs <- data.frame(ligands = ligands, recepts = recepts)
+  }
+  else {
+    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    if(database %notin% names(all)) {
+      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    }
+    message(paste("Using database",database))
+    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    ligands <- as.character(lit.put[, "source_genesymbol"])
+    recepts <- as.character(lit.put[, "target_genesymbol"])
+  }
   colnames(pairs) <- c("ligand","receptor")
 
   cell.exprs <- GetAssayData(seu, assay = assay.use, slot = slot.use)[rownames(seu) %in% c(unique(pairs$ligand),unique(pairs$receptor)),c(send_cells,rec_cells)]
