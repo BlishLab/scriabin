@@ -56,50 +56,24 @@ load_nichenet_database()
 ### Read in the gene expression data
 
 ```{r}
-seu <- readRDS(url("https://drive.google.com/file/d/1HSrjmoyybfSRM4dDGURVyWDs9BG-XmyI/view?usp=sharing"))
-
-#using authors' cell type annotations
-DimPlot(seu, group.by = "celltype", label = T, repel = T) + NoLegend()
-DimPlot(seu, label = T, repel = T) + NoLegend()
-```
-
-```{r}
 library(SeuratData)
 InstallData("ifnb")
 
 ifnb <- UpdateSeuratObject(LoadData("ifnb"))
 
-ifnb <- PercentageFeatureSet(ifnb, pattern = "MT-", col.name = "percent.mt")
-ifnb <- SCTransform(ifnb, vars.to.regress = "percent.mt", verbose = F)
-ifnb <- RunPCA(ifnb, verbose = F)
-ifnb <- FindNeighbors(ifnb, dims = 1:30, verbose = F)
-ifnb <- FindClusters(ifnb, verbose = F)
-ifnb <- RunUMAP(ifnb, dims = 1:30, verbose = F)
-
-#let's make one level of cell type calls less coarse
-ifnb$celltype.l1 <- mapvalues(ifnb)
+ifnb <- PercentageFeatureSet(ifnb, pattern = "MT-", col.name = "percent.mt") %>%
+  SCTransform(ifnb, vars.to.regress = "percent.mt", verbose = F) %>%
+  RunPCA(ifnb, verbose = F) %>% 
+  FindNeighbors(ifnb, dims = 1:30, verbose = F) %>% 
+  FindClusters(ifnb, verbose = F) %>%
+  RunUMAP(ifnb, dims = 1:30, verbose = F)
 
 DimPlot(ifnb, label = T, repel = T) + NoLegend()
 DimPlot(ifnb, label = T, repel = T, group.by = "seurat_annotations") + NoLegend()
 DimPlot(ifnb, group.by = "stim")
 ```
 
-
-### Rename cells
-
-One of the clunkier parts of Scriabin currently is that it relies on extracting the sample ID of interest from the cell name. Thus, cells must be named so that a gsub function can be applied to the name and return the sample ID. One example of this is shown below:
-
-```{r}
-sample_ids <- paste("project",ifnb$stim, sep = "=")
-new_cell_names <- paste(sample_ids, 1:ncol(ifnb), sep = ".")
-
-ifnb <- RenameCells(ifnb, new.names = new_cell_names)
-
-# in this example, the gsub pattern that can be used to extract the sample ID is: ".*[=]([^.]+)[.].*"
-unique(gsub(".*[=]([^.]+)[.].*", replacement = "\\1", colnames(ifnb)))
-```
-
-This dataset is composed of two sub-datasets: one infected with LCMV, and the other injected with sterile saline (SS). In this vignette, we will focus on the analysis of a single dataset, so let's just look at the SS dataset. We will compare LCMV vs. SS in the comparative analysis vignette.
+This dataset is composed of two sub-datasets: one infected with LCMV, and the other injected with sterile saline (SS). In this vignette, we will focus on the analysis of a single dataset, so let's just look at the LCMV sub-dataset. We will compare LCMV vs. SS in the comparative analysis vignette.
 
 ```{r}
 subseu <- subset(ifnb, cells = colnames(ifnb)[ifnb$stim=="STIM"])
@@ -110,9 +84,12 @@ subseu <- subset(ifnb, cells = colnames(ifnb)[ifnb$stim=="STIM"])
 
 ### Build a non-prioritized interaction graph
 
+Scriabin has 15 commonly used ligand-receptor databases built-in (thanks to the Liana package: https://github.com/saezlab/liana). Scriabin functions will also accept a custom list of ligand/receptor pairs if you wish to restrict analysis to some subset of interactions (eg. only membrane-bound interactions). 
+
+Here, we use the OmniPath database as default.
+
 ```{r}
-subseu <- BuildPriorInteraction(subseu, database = "custom", 
-                                ligands = lr_data$source_genesymbol, recepts = lr_data$target_genesymbol)
+subseu <- BuildPriorInteraction(subseu, database = "OmniPath")
 
 # the number of row and column clusters can be automatically detected using the elbow method by omitting the row.k and col.k arguments. However, this takes some time with larger matrices.
 
@@ -131,9 +108,7 @@ Then, we use this information in building an interaction matrix by specifying th
 
 ```{r}
 ranked_genes <- crGeneSig(subseu, variant_features = VariableFeatures(subseu))
-subseu <- BuildPriorInteraction(subseu, database = "custom", 
-                                ligands = lr_data$source_genesymbol, recepts = lr_data$target_genesymbol,
-                                specific = T, ranked_genes = ranked_genes,
+subseu <- BuildPriorInteraction(subseu, specific = T, ranked_genes = ranked_genes,
                                 graph_name = "specific_prior")
 
 #looking at first 500 cells
@@ -179,7 +154,7 @@ hm <- BuildSingleHeatmap(sub_graph, seu = subseu, cell.type.calls = "seurat_anno
 hm$hm
 ```
 
-I want to know what's different about monocyte sending cluster 1 and NK receiving cluster 2. 
+I want to know how CD14 monocyte sending cluster 4 and CD16 monocyte receiving cluster 3 are interacting.
 
 ```{r}
 senders = names(hm$SCluster)[hm$SCluster=="4"]
@@ -192,8 +167,10 @@ interactome <- GeneratePrioritizedInteractome(seu = subseu, ranked_genes = ranke
                                               cell.type.calls = "seurat_annotations",
                                               nichenet_results = sub_ligands, use_clusters = F)
 
-test <- interactome %>% group_by(source,receiver,pair) %>% top_n(n=1,wt=target_weight)
-PlotAlluvium(test)
+# in situations where the resulting interactome is huge, we can visualize all the interaction paths but just the top downstream target gene for each 
+interactome_top_target <- interactome %>% group_by(source,receiver,pair) %>% top_n(n=1,wt=target_weight)
+
+PlotAlluvium(interactome_top_target, optimize.flows = F)
 ```
 
 

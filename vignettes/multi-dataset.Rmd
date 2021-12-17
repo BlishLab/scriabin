@@ -1,0 +1,88 @@
+---
+title: "Comparative CCC analysis with Scriabin"
+author: "Aaron J. Wilk"
+date: "2021-12-15"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{single-dataset}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+In this vignette, we will analyze a cell-cell communication within a single dataset at single-cell resolution
+
+# Prepare Scriabin analysis
+
+## Load required packages and expression data
+
+### Load packages
+
+```{r setup}
+library(scriabin)
+library(Seurat)
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(magrittr)
+library(nichenetr)
+library(factoextra)
+library(elbow)
+library(ggsci)
+library(ComplexHeatmap)
+library(circlize)
+library(CellID)
+library(ggalluvial)
+library(scales)
+library(networkD3)
+library(clipr)
+library(ggplot2)
+library(cowplot)
+```
+
+### Load the NicheNet database
+
+```{r}
+load_nichenet_database()
+```
+
+
+### Read in the gene expression data
+
+We will be using the same dataset analyzed in the single-dataset vignette. Please see that vignette for generating the Seurat object we will use in this vignette
+
+```{r}
+ifnb
+
+DimPlot(ifnb, label = T, repel = T) + NoLegend()
+DimPlot(ifnb, label = T, repel = T, group.by = "seurat_annotations") + NoLegend()
+DimPlot(ifnb, group.by = "stim")
+```
+
+If we assume there is no batch effect between these two datasets, we can observe from these dimensionality reduction projections the intense transcriptional perturbation caused by this stimulation. This is one situation in which it is easy to see why clustering/subclustering for high resolution CCC analysis can be a problematic task: the degree of perturbation is so high that the monocytes from these two datasets will never cluster together. We need a way to align these subspaces together. Given a monocyte in CTRL, what is its molecular counterpart in STIM? 
+
+We take recent progress in dataset integration methodology to develop a high-resolution alignment process we call "binning", where we assign each cell a bin identity so that we maximize the similarity of the cells within a bin, and maximize the representation of all the samples we wish to compare in each bin. 
+
+## Dataset binning
+
+### Rename cells
+
+One of the clunkier parts of Scriabin's binning workflow currently is that it relies on extracting the sample ID of interest from the cell name. Thus, cells must be named so that a gsub function can be applied to the name and return the sample ID. One example of this is shown below:
+
+```{r}
+sample_ids <- paste("project",ifnb$stim, sep = "=")
+new_cell_names <- paste(sample_ids, 1:ncol(ifnb), sep = ".")
+
+ifnb <- RenameCells(ifnb, new.names = new_cell_names)
+
+# in this example, the gsub pattern that can be used to extract the sample ID is: ".*[=]([^.]+)[.].*"
+unique(gsub(".*[=]([^.]+)[.].*", replacement = "\\1", colnames(ifnb)))
+```
+
+

@@ -18,7 +18,8 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
                           dims = 1:50, snn.reduction = "pca",
                           anchor_score_threshold = 0.5,
                           gsub_function = ".*[_]([^.]+)[.].*",
-                          optim_quan.threshold = 0.1, optim_k.unique = 6)
+                          optim_quan.threshold = 0.1, optim_k.unique = 6,
+                          verbose = F)
 {
   message("Running PCA . . . ")
   seuObj <- RunPCA(seuObj, verbose=F)
@@ -99,7 +100,9 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
     success1 <- ifelse(mean(nbs_unique$unique_types)>optim_k.unique,T,F)
     success2 <- n>50
     success <- success1|success2
-    message(paste0("Average completion score: ",mean(nbs_unique$unique_types)))
+    if(verbose) {
+      message(paste0("Average completion score: ",mean(nbs_unique$unique_types)))
+    }
     #pull out the worst bins (perhaps those with the fewest unique_types and the lowest overall connectivity)
     quan.threshold = optim_quan.threshold
     quan.level <- round(unname(quantile(nbs_unique$unique_types,quan.threshold)))
@@ -168,10 +171,10 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
       if(length(sus_cells[sus_cells=="Available"])>1) {
         cell_steal <- names(outer_steal_working)[sus_cells=="Available"][1]
         steal_ids[cell_steal] <- noi
-        message("Stole a cell!")
+        if(verbose) {message("Stole a cell!")}
       }
       else {
-        message(paste0("Neighborhood ",noi," has no potential targets"))
+        if(verbose){message(paste0("Neighborhood ",noi," has no potential targets"))}
       }
     }
     ##reevaluate completion
@@ -180,7 +183,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
     stolen_unique <- unique(stolen_completion[,c("id","unique_types")])
   }
   incomplete_ids <- stolen_unique %>% dplyr::filter(unique_types<length(object.list)) %>% pull(id)
-  message(paste0("Merging partners must be found for ",length(incomplete_ids)," bins"))
+  if(verbose){message(paste0("Merging partners must be found for ",length(incomplete_ids)," bins"))}
 
 
   message("Merging bins")
@@ -206,7 +209,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
       merge_ids[merge_ids==noi] <- nb_to_merge
       message("Merged a neighborhood!")
       if(max(outerresults_noi)<0) {
-        message(paste0("Warning! Neighborhood ",noi," is anti-correlated with all bins"))
+        if(verbose){message(paste0("Warning! Neighborhood ",noi," is anti-correlated with all bins"))}
       }
     }
     else {
@@ -218,7 +221,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
     group_by(id) %>% mutate(unique_types=n_distinct(ident))
   merge_unique <- unique(merge_completion[,c("id","unique_types")])
 
-  message(paste0("Finished! Found ",length(unique(merge_ids))," bins. Now saving data . . . "))
+  message(paste0("Finished! Found ",length(unique(merge_ids))," bins"))
 
   seuObj$bins <- merge_ids
   return(seuObj)
