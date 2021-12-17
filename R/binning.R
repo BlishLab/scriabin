@@ -5,7 +5,6 @@
 #' @param dims Dimensions of reduction to use as input for neighbor graph calculation
 #' @param snn.reduction Name of reduction used as input to building the SNN
 #' @param anchor_score_threshold Anchor pairs scoring below this threshold will be discarded.
-#' @param gsub_function Pattern passed to gsub to return the name of the timepoint/condition to which each cell belongs
 #' @param optim_quan.threshold Percentage of poor connectivity bins to remove on each iteration of connectivity optimization
 #' @param optim_k.unique Mean number of datasets represented in each bin at which connectivity optimization will be considered complete
 #'
@@ -17,10 +16,17 @@
 AlignDatasets <- function(seuObj, split.by = "time.orig",
                           dims = 1:50, snn.reduction = "pca",
                           anchor_score_threshold = 0.5,
-                          gsub_function = ".*[_]([^.]+)[.].*",
                           optim_quan.threshold = 0.1, optim_k.unique = 6,
                           verbose = F)
 {
+  gsub_function = ".*[=]([^.]+)[.].*"
+  orig_cell_names <- colnames(seuObj)
+
+  sample_ids <- paste("project",seuObj@meta.data[,split.by], sep = "=")
+  new_cell_names <- paste(sample_ids, 1:ncol(seuObj), sep = ".")
+
+  seuObj <- RenameCells(seuObj, new.names = new_cell_names)
+
   message("Running PCA . . . ")
   seuObj <- RunPCA(seuObj, verbose=F)
 
@@ -224,6 +230,9 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
   message(paste0("Finished! Found ",length(unique(merge_ids))," bins"))
 
   seuObj$bins <- merge_ids
+
+  seuObj <- RenameCells(seuObj, new.names = orig_cell_names)
+
   return(seuObj)
 }
 
@@ -265,7 +274,6 @@ random_connectivity_test <- function(seu_oi = seu_oi,
 #' @param sigtest_cell_types Name of meta.data column containing the cell type labels to use for connectivity testing
 #' @param snn.reduction Name of reduction used as input to building the SNN
 #' @param anchor_score_threshold Anchor pairs scoring below this threshold will be discarded.
-#' @param gsub_function Pattern passed to gsub to return the name of the timepoint/condition to which each cell belongs
 #' @param optim_quan.threshold Percentage of poor connectivity bins to remove on each iteration of connectivity optimization
 #' @param optim_k.unique Mean number of datasets represented in each bin at which connectivity optimization will be considered complete
 #'
@@ -277,8 +285,7 @@ random_connectivity_test <- function(seu_oi = seu_oi,
 BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
                         coarse_cell_types = NULL, sigtest_cell_types = NULL,
                         snn.reduction = "pca", anchor_score_threshold = 0.5,
-                        gsub_function = ".*[_]([^.]+)[.].*",
-                        optim_quan.threshold = 0.1, optim_k.unique = NULL)
+                        optim_quan.threshold = 0.1, optim_k.unique = NULL, verbose = F)
 {
   if(is.null(coarse_cell_types)) {
     warning("It is recommend to specify coarse cell types to improve bin significance testing. \nWhen not specified, Scriabin defaults to generating dataset-wide bins and testing significance based on cluster results.")
@@ -310,8 +317,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
                               split.by = split.by,
                               optim_quan.threshold = optim_quan.threshold,
                               optim_k.unique = optim_k.unique,
-                              gsub_function = gsub_function,
-                              snn.reduction = snn.reduction)
+                              snn.reduction = snn.reduction, verbose = verbose)
 
       message("Testing bin significance")
       SNN <- as.sparse(seu_oi@graphs[[grep("_snn",Graphs(seu_oi),value=T)]])
@@ -380,8 +386,8 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
                             split.by = split.by,
                             optim_quan.threshold = optim_quan.threshold,
                             optim_k.unique = optim_k.unique,
-                            gsub_function = gsub_function,
-                            snn.reduction = snn.reduction)
+                            snn.reduction = snn.reduction,
+                            verbose = verbose)
 
     message("Testing bin significance")
     SNN <- as.sparse(seu_oi@graphs[[grep("_snn",Graphs(seu_oi),value=T)]])
