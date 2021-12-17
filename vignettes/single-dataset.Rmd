@@ -33,7 +33,7 @@ library(scriabin)
 ### Load the NicheNet database
 
 ```{r}
-load_nichenet_database()
+scriabin::load_nichenet_database()
 ```
 
 

@@ -12,9 +12,9 @@ BinDatasets(
   sigtest_cell_types = NULL,
   snn.reduction = "pca",
   anchor_score_threshold = 0.5,
-  gsub_function = ".*[_]([^.]+)[.].*",
   optim_quan.threshold = 0.1,
-  optim_k.unique = NULL
+  optim_k.unique = NULL,
+  verbose = F
 )
 }
 \arguments{
@@ -29,8 +29,6 @@ BinDatasets(
 \item{snn.reduction}{Name of reduction used as input to building the SNN}
 
 \item{anchor_score_threshold}{Anchor pairs scoring below this threshold will be discarded.}
-
-\item{gsub_function}{Pattern passed to gsub to return the name of the timepoint/condition to which each cell belongs}
 
 \item{optim_quan.threshold}{Percentage of poor connectivity bins to remove on each iteration of connectivity optimization}
 

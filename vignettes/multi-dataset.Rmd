@@ -4,7 +4,7 @@ author: "Aaron J. Wilk"
 date: "2021-12-15"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{single-dataset}
+  %\VignetteIndexEntry{multi-dataset}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -31,7 +31,7 @@ library(scriabin)
 ### Load the NicheNet database
 
 ```{r}
-load_nichenet_database()
+scriabin::load_nichenet_database()
 ```
 
 
