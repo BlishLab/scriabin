@@ -14,3 +14,23 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
+Imports: 
+    magrittr,
+    dplyr,
+    plyr,
+    Seurat,
+    nichenetr,
+    factoextra,
+    elbow,
+    ggsci,
+    ComplexHeatmap,
+    circlize,
+    CellID,
+    ggalluvial,
+    scales,
+    networkD3,
+    clipr,
+    ggplot2,
+    cowplot,
+    Matrix,
+    pbapply

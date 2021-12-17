@@ -843,7 +843,178 @@ BuildGranHeatmap <- function(interaction_graphs, seu, name = "var_results",
 
 
 
+PlotAlluvium_nocells <- function(connectome, optimize.flows = T) {
+  connectome_plot <- connectome[,c("source_type","ligand","receptor","receiver_type","target","weight")]
 
+  connectome_plot$unique <- paste(connectome_plot$source_type,
+                                  connectome_plot$ligand,
+                                  connectome_plot$receptor,
+                                  connectome_plot$receiver_type,
+                                  connectome_plot$target,
+                                  sep = "_")
+
+  connectome_plot <- aggregate(connectome_plot$weight, by = list(connectome_plot$unique), FUN = sum)
+  colnames(connectome_plot) <- c("unique","Weight")
+  connectome_plot %<>% separate(unique, into = c("source_type","ligand","receptor","receiver_type","target"), sep = "_")
+
+  colnames(connectome_plot) <- c("Sender\ncelltype","Ligand",
+                                 "Receptor","Receiver\ncelltype","Target\ngene","Weight")
+  connectome_lodes <- to_lodes_form(connectome_plot, axes = 1:5, id = "Cohort")
+  connectome_lodes$stratum <- as.factor(connectome_lodes$stratum)
+
+  sender_fill <- cell.cols
+  unique_genes <- unique(c(connectome_plot$Ligand,
+                           connectome_plot$Receptor,
+                           connectome_plot$`Target
+                           gene`))
+  gene_fill <- hue_pal()(length(unique_genes))
+  names(gene_fill) <- unique_genes
+
+  connectome_lodes$stratum <- as.character(connectome_lodes$stratum)
+
+
+  if(optimize.flows) {
+    message("Preparing data for networkD3 . . . ")
+    send_to_ligand <- merge(connectome_lodes[connectome_lodes$x=="Sender\ncelltype",c("Cohort","x","stratum","Weight")],
+                            connectome_lodes[connectome_lodes$x=="Ligand",c("Cohort","x","stratum")],
+                            by = "Cohort")
+    send_to_ligand$stratum.x <- paste(send_to_ligand$stratum.x,"send",sep = "_")
+    send_to_ligand$stratum.y <- paste(send_to_ligand$stratum.y,"send",sep = "_")
+
+    ligand_to_receptor <- merge(connectome_lodes[connectome_lodes$x=="Ligand",c("Cohort","x","stratum","Weight")],
+                                connectome_lodes[connectome_lodes$x=="Receptor",c("Cohort","x","stratum")],
+                                by = "Cohort")
+    ligand_to_receptor$stratum.x <- paste(ligand_to_receptor$stratum.x,"ligand", sep = "_")
+    ligand_to_receptor$stratum.y <- paste(ligand_to_receptor$stratum.y,"receptor", sep = "_")
+
+    receptor_to_type <- merge(connectome_lodes[connectome_lodes$x=="Receptor",c("Cohort","x","stratum","Weight")],
+                              connectome_lodes[connectome_lodes$x=="Receiver\ncelltype",c("Cohort","x","stratum")],
+                              by = "Cohort")
+    receptor_to_type$stratum.x <- paste(receptor_to_type$stratum.x,"receiver", sep = "_")
+    receptor_to_type$stratum.y <- paste(receptor_to_type$stratum.y,"receiver", sep = "_")
+
+    type_to_target <- merge(connectome_lodes[connectome_lodes$x=="Receiver\ncelltype",c("Cohort","x","stratum","Weight")],
+                            connectome_lodes[connectome_lodes$x=="Target\ngene",c("Cohort","x","stratum")],
+                            by = "Cohort")
+    type_to_target$stratum.x <- paste(type_to_target$stratum.x,"receiver", sep = "_")
+    type_to_target$stratum.y <- paste(type_to_target$stratum.y,"target", sep = "_")
+
+    links <- rbind(data.frame(source=send_to_ligand$stratum.x,target=send_to_ligand$stratum.y,value=send_to_ligand$Weight),
+                   data.frame(source=ligand_to_receptor$stratum.x,target=ligand_to_receptor$stratum.y,value=ligand_to_receptor$Weight),
+                   data.frame(source=receptor_to_type$stratum.x,target=receptor_to_type$stratum.y,value=receptor_to_type$Weight),
+                   data.frame(source=type_to_target$stratum.x,target=type_to_target$stratum.y,value=type_to_target$Weight))
+
+    node.list <- unique(c(links$source,links$target))
+    nodes <- data.frame(node = 1:length(unique(node.list)), name = unique(node.list))
+    nodes$node <- nodes$node-1
+
+    links$source <- as.numeric(plyr::mapvalues(links$source, from = nodes$name, to = nodes$node, warn_missing = F))
+    links$target <- as.numeric(plyr::mapvalues(links$target, from = nodes$name, to = nodes$node, warn_missing = F))
+
+    p1 <- sankeyNetwork(Links = links, Nodes = nodes,
+                        Source = "source", Target = "target",
+                        Value = "value", NodeID = "name",
+                        fontSize = 12, nodeWidth = 30)
+
+    customJS <- 'function() { console.log(this.sankey.nodes().map(d => [d.name, d.x, d.y])); }'
+    p2 <- htmlwidgets::onRender(p1, customJS)
+    saveNetwork(p2, "~/Downloads/sankey_networkD3.html")
+    browseURL('file:///Users/aaronwilk/Downloads/sankey_networkD3.html')
+
+    message("Please browse the code for the opened Sankey diagram (control-command-C)
+            Navigate to the console tab and copy the contents of this tab
+            Type 'yes' below when this has been completed.\n
+            If you are prompted more than once, try copying again, you probably copied without the line breaks")
+
+    status <- "no"
+    while(status!="yes") {
+      status <- readline(prompt = "Have node positions been copied?: ")
+      nodePositions <- read_clip_tbl()
+      nodePositions <- data.frame(x=nodePositions[!grepl("^\\[",nodePositions[,1]),])
+      status <- ifelse(nrow(nodePositions)>1,"yes","no")
+    }
+
+    # nodePositions <- read.csv("~/Downloads/nodePositions.csv")
+
+    colnames(nodePositions) <- "x_axis"
+    nodePositions$x_axis <- sub("\\].*", "", sub(".*\\[", "", nodePositions$x_axis))
+
+    nodePositions <- as.data.frame(t(as.data.frame(str_split(nodePositions$x_axis,","))))
+    rownames(nodePositions) <- NULL
+    colnames(nodePositions) <- c("stratum_full","x_axis","y")
+
+    nodePositions <- nodePositions[1:(nrow(nodePositions)-2),]
+    trim.leading <- function (x)  sub("^\\s+", "", x)
+
+    nodePositions$x_axis <- as.numeric(trim.leading(nodePositions$x_axis))
+    nodePositions$y <- as.numeric(trim.leading(nodePositions$y))
+    nodePositions$stratum_full <- gsub("'","",nodePositions$stratum_full)
+
+    nodePositions$x_axis <- scales::rescale(nodePositions$x_axis, newrange = c(0,10*max(nodePositions$y)))
+    nodePositions$num_rank <- nodePositions$x_axis+nodePositions$y
+
+    nodePositions %<>%
+      mutate(rank = order(order(num_rank, decreasing = F)))
+    new.levels <- nodePositions %>% arrange(num_rank) %>% pull(stratum_full)
+
+    connectome_lodes_merge <- connectome_lodes
+
+    connectome_lodes_merge$stratum <- ifelse(connectome_lodes_merge$x=="Sender\ncelltype",
+                                             paste(connectome_lodes_merge$stratum,"send",sep = "_"),
+                                             connectome_lodes_merge$stratum)
+    connectome_lodes_merge$stratum <- ifelse(connectome_lodes_merge$x=="Ligand",
+                                             paste(connectome_lodes_merge$stratum,"ligand",sep = "_"),
+                                             connectome_lodes_merge$stratum)
+    connectome_lodes_merge$stratum <- ifelse(connectome_lodes_merge$x=="Receptor",
+                                             paste(connectome_lodes_merge$stratum,"receptor",sep = "_"),
+                                             connectome_lodes_merge$stratum)
+    connectome_lodes_merge$stratum <- ifelse(connectome_lodes_merge$x=="Receiver\ncelltype",
+                                             paste(connectome_lodes_merge$stratum,"receiver",sep = "_"),
+                                             connectome_lodes_merge$stratum)
+    connectome_lodes_merge$stratum <- ifelse(connectome_lodes_merge$x=="Target\ngene",
+                                             paste(connectome_lodes_merge$stratum,"target",sep = "_"),
+                                             connectome_lodes_merge$stratum)
+
+    connectome_lodes_merge$stratum <- factor(connectome_lodes_merge$stratum, levels = new.levels)
+
+    send_fill <- sender_fill
+    names(send_fill) <- paste(names(send_fill),"send", sep = "_")
+    receiver_fill <- sender_fill
+    names(receiver_fill) <- paste(names(receiver_fill),"receiver", sep = "_")
+    ligand_fill <- gene_fill
+    names(ligand_fill) <- paste(names(ligand_fill),"ligand", sep = "_")
+    receptor_fill <- gene_fill
+    names(receptor_fill) <- paste(names(receptor_fill),"receptor", sep = "_")
+    target_fill <- gene_fill
+    names(target_fill) <- paste(names(target_fill),"target", sep = "_")
+
+    ggplot(connectome_lodes_merge, aes(x = x, stratum = stratum, alluvium = Cohort,
+                                       y = Weight, label = stratum)) +
+      geom_flow(stat = "alluvium", lode.guidance = "frontback",color = "darkgray",cement.alluvia = T) +
+      geom_stratum(aes(fill = stratum), width = 1/3) + scale_fill_manual(values = c(send_fill,
+                                                                                    receiver_fill,
+                                                                                    ligand_fill,
+                                                                                    receptor_fill,
+                                                                                    target_fill)) +
+      ggfittext::geom_fit_text(aes(label = ifelse(as.numeric(x) %in% c(1:5), sub("_[^_]+$", "", stratum), NA)),
+                               stat = "stratum", width = 1/3, min.size = 3) +
+      theme_cowplot() +
+      theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) + labs(x = NULL) + NoLegend()
+
+  }
+
+  else {
+    ggplot(connectome_lodes, aes(x = x, stratum = stratum, alluvium = Cohort,
+                                 y = Weight, label = stratum)) +
+      geom_flow(lode.guidance = "frontback",color = "darkgray",cement.alluvia = T) +
+      stat_stratum(aes(fill = stratum), width = 1/3) + scale_fill_manual(values = c(sender_fill,gene_fill,cell_fill)) +
+      ggfittext::geom_fit_text(aes(label = ifelse(as.numeric(x) %in% c(1,3,4,6,7), as.character(stratum), NA)),
+                               stat = "stratum", width = 1/3, min.size = 3) +
+      theme_cowplot() +
+      theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) + labs(x = NULL) + NoLegend()
+  }
+
+}
 
 
 

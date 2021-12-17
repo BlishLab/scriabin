@@ -26,25 +26,9 @@ In this vignette, we will analyze a cell-cell communication within a single data
 
 ```{r setup}
 library(scriabin)
-library(Seurat)
-library(plyr)
-library(dplyr)
-library(tidyverse)
-library(magrittr)
-library(nichenetr)
-library(factoextra)
-library(elbow)
-library(ggsci)
-library(ComplexHeatmap)
-library(circlize)
-library(CellID)
-library(ggalluvial)
-library(scales)
-library(networkD3)
-library(clipr)
-library(ggplot2)
-library(cowplot)
 ```
+
+
 
 ### Load the NicheNet database
 
@@ -57,16 +41,16 @@ load_nichenet_database()
 
 ```{r}
 library(SeuratData)
-InstallData("ifnb")
+# InstallData("ifnb")
 
 ifnb <- UpdateSeuratObject(LoadData("ifnb"))
 
-ifnb <- PercentageFeatureSet(ifnb, pattern = "MT-", col.name = "percent.mt") %>%
-  SCTransform(ifnb, vars.to.regress = "percent.mt", verbose = F) %>%
-  RunPCA(ifnb, verbose = F) %>% 
-  FindNeighbors(ifnb, dims = 1:30, verbose = F) %>% 
-  FindClusters(ifnb, verbose = F) %>%
-  RunUMAP(ifnb, dims = 1:30, verbose = F)
+ifnb <- PercentageFeatureSet(ifnb, pattern = "MT-", col.name = "percent.mt")  
+ifnb <- SCTransform(ifnb, vars.to.regress = "percent.mt", verbose = F)  
+ifnb <- RunPCA(ifnb, verbose = F)   
+ifnb <- FindNeighbors(ifnb, dims = 1:30, verbose = F)   
+ifnb <- FindClusters(ifnb, verbose = F)  
+ifnb <- RunUMAP(ifnb, dims = 1:30, verbose = F)
 
 DimPlot(ifnb, label = T, repel = T) + NoLegend()
 DimPlot(ifnb, label = T, repel = T, group.by = "seurat_annotations") + NoLegend()
@@ -155,6 +139,8 @@ hm$hm
 ```
 
 I want to know how CD14 monocyte sending cluster 4 and CD16 monocyte receiving cluster 3 are interacting.
+
+Optionally, `PlotAlluvium_nocells` will create the same plot but without strata for individual sender/receiver cells.
 
 ```{r}
 senders = names(hm$SCluster)[hm$SCluster=="4"]

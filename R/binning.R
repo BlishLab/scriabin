@@ -31,7 +31,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
   seuObj <- RunPCA(seuObj, verbose=F)
 
   message(paste0("Constructing neighbor graphs with reduction ",snn.reduction," . . . "))
-  seuObj <- FindNeighbors(seuObj, dims = 1:50, verbose = F, reduction = snn.reduction)
+  seuObj <- FindNeighbors(seuObj, dims = dims, verbose = F, reduction = snn.reduction)
 
   message("Splitting object . . . ")
   object.list <- SplitObject(seuObj, split.by = split.by) #split object
@@ -86,7 +86,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
 
   message("Generating connectivity matrix . . . ")
   SNN <- as.sparse(seuObj@graphs[[grep("_snn",Graphs(seuObj),value=T)]])
-  outerresults <- sapply(n.results, function(v) rowMeans(SNN[, v]))
+  outerresults <- sapply(n.results, function(v) Matrix::rowMeans(SNN[, v]))
 
   message("Optimizing number of bins . . . ")
   success = F
@@ -311,14 +311,13 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
     message("Binning with coarse cell types")
     seu_ct_split <- SplitObject(seu, split.by = coarse_cell_types)
     bin_ids <- lapply(seq_along(1:length(seu_ct_split)), function(x) {
-      seu_oi <- AlignDatasets(seuObj = seu_ct_split[[x]],
+      seu_oi <- AlignDatasets(seuObj = seu,
                               dims = dims,
                               anchor_score_threshold = anchor_score_threshold,
                               split.by = split.by,
                               optim_quan.threshold = optim_quan.threshold,
                               optim_k.unique = optim_k.unique,
                               snn.reduction = snn.reduction, verbose = verbose)
-
       message("Testing bin significance")
       SNN <- as.sparse(seu_oi@graphs[[grep("_snn",Graphs(seu_oi),value=T)]])
 
@@ -336,6 +335,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
                                                                        sigtest_cell_types = sigtest_cell_types))
         return(sum(random_distribution>0.05)<5)
       }))
+      browser()
       names(bin_p) <- unique(seu_oi$bins)
 
       anno.overlap <- t(reshape2::dcast(as.data.frame(table(as.character(seu_oi$bins),
@@ -359,8 +359,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
           con <- sapply(seq_along(1:length(others)), function(x) {
             mean(SNN[bin_cells,colnames(seu_oi)[seu_oi$bins==others[x]]])
           })
-
-          seu_oi$bins[seu_oi$bins==bin] <- others[resample(which(con==max(con)),1)]
+          seu_oi$bins[seu_oi$bins==bin] <- others[scriabin::resample(which(con==max(con)),1)]
 
         }
       }
@@ -430,7 +429,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
           mean(SNN[bin_cells,colnames(seu_oi)[seu_oi$bins==others[x]]])
         })
 
-        seu_oi$bins[seu_oi$bins==bin] <- others[resample(which(con==max(con)),1)]
+        seu_oi$bins[seu_oi$bins==bin] <- others[scriabin::resample(which(con==max(con)),1)]
 
       }
     }

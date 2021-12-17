@@ -26,24 +26,6 @@ In this vignette, we will analyze a cell-cell communication within a single data
 
 ```{r setup}
 library(scriabin)
-library(Seurat)
-library(plyr)
-library(dplyr)
-library(tidyverse)
-library(magrittr)
-library(nichenetr)
-library(factoextra)
-library(elbow)
-library(ggsci)
-library(ComplexHeatmap)
-library(circlize)
-library(CellID)
-library(ggalluvial)
-library(scales)
-library(networkD3)
-library(clipr)
-library(ggplot2)
-library(cowplot)
 ```
 
 ### Load the NicheNet database
@@ -67,22 +49,43 @@ DimPlot(ifnb, group.by = "stim")
 
 If we assume there is no batch effect between these two datasets, we can observe from these dimensionality reduction projections the intense transcriptional perturbation caused by this stimulation. This is one situation in which it is easy to see why clustering/subclustering for high resolution CCC analysis can be a problematic task: the degree of perturbation is so high that the monocytes from these two datasets will never cluster together. We need a way to align these subspaces together. Given a monocyte in CTRL, what is its molecular counterpart in STIM? 
 
-We take recent progress in dataset integration methodology to develop a high-resolution alignment process we call "binning", where we assign each cell a bin identity so that we maximize the similarity of the cells within a bin, and maximize the representation of all the samples we wish to compare in each bin. 
+We take recent progress in dataset integration methodology to develop a high-resolution alignment process we call "binning", where we assign each cell a bin identity so that we maximize the similarity of the cells within a bin, and maximize the representation of all the samples we wish to compare in each bin. After bins are identified, they are tested for the significance of their connectivity.
 
 ## Dataset binning
 
-### Rename cells
+There are two workflow options for binning in terms of bin identification:
+ 1. Bin by coarse cell identities (recommended). If the user specifies coarse cell identities (eg. in a PBMC dataset, T/NK cells, B cells, myeloid cells), this can prevent anchors from being identified between cells that the user believes to be in non-overlapping cell categories. This can result in cleaner bins, but there must be enough cells in each coarse identity from each dataset to proceed properly. A downside is that there may be some small groups of cells that aren't related to major cell populations (eg. a small population of platelets in a PBMC dataset). 
+ 2. Bin all cells. Without specifying coarse cell identities for binning, potentially spurious associations may form between cells (especially in lower quality samples). 
+ 
+Significance testing proceeds by a permutation test: comparing connectivity of the identified bin against randomly generated bins. There are two workflow options for binning in terms of generating random bins:
+ 1. Pick cells from the same cell type in each random bin (recommended). If the user supplies granular cell type identities, a random bin will be constructed with cells from the same cell type identity. The more granular the cell type calls supplied, the more rigorous the significance testing.
+ 2. Without supplying granular cell type identities, the dataset will be clustered and the cluster identities used for significance testing. Generating random bins across the entire dataset would result in very few non-significant bins identified.
+ 
+Here we will define a coarse cell identity to use for bin identification, and then use the Seurat-provided annotations for significance testing. 
 
-One of the clunkier parts of Scriabin's binning workflow currently is that it relies on extracting the sample ID of interest from the cell name. Thus, cells must be named so that a gsub function can be applied to the name and return the sample ID. One example of this is shown below:
+Additionally, Scriabin allows different reductions to be used for neighbor graph construction. For example, the results from a reference-based sPCA can be used for binning if the cell type relationships in the reference are considered more informative. 
 
 ```{r}
-sample_ids <- paste("project",ifnb$stim, sep = "=")
-new_cell_names <- paste(sample_ids, 1:ncol(ifnb), sep = ".")
+ifnb$coarse_ident <- mapvalues(ifnb$seurat_annotations, from = unique(ifnb$seurat_annotations),
+                               to = c("myeloid","myeloid","T/misc","T/misc",
+                                      "T/misc","T/misc","T/misc","B",
+                                      "B","myeloid","myeloid","T/misc","T/misc"))
 
-ifnb <- RenameCells(ifnb, new.names = new_cell_names)
-
-# in this example, the gsub pattern that can be used to extract the sample ID is: ".*[=]([^.]+)[.].*"
-unique(gsub(".*[=]([^.]+)[.].*", replacement = "\\1", colnames(ifnb)))
+test <- BinDatasets(ifnb, split.by = "stim", dims = 1:30, 
+                    coarse_cell_types = "coarse_ident", sigtest_cell_types = "seurat_annotations")
 ```
+
+Now that we have binned the dataset, let's identify which bins have different magnitudes of CCC between the two datasets. We'll do this first by generating interaction graphs for both datasets, and then testing which bins have cells with significantly different degrees of CCC. Then, we can take the significantly perturbed bins and find out what is different about their CCC. 
+
+Currently only longitudinal and binary comparisons are supported. 
+
+```{r}
+ifnb_split <- SplitObject(ifnb, split.by = "stim")
+ifnb_split <- pblapply(ifnb_split, function(x) {BuildPriorInteraction(x, correct.depth = F)})
+ogig <- lapply(ifnb_split, function(x) {
+  as.matrix(x@graphs$prior_interaction)
+})
+```
+
 
 
