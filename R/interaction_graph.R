@@ -33,7 +33,7 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
     }
     message(paste("Using database",database))
     pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    lit.put <- pairs %>% mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
     lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
@@ -148,7 +148,7 @@ BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assa
     }
     message(paste("Using database",database))
     pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    lit.put <- pairs %>% mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
     lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])

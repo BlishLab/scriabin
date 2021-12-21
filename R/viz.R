@@ -378,12 +378,13 @@ PrioritizeInteractome <- function(seu, gene_rankings, interactome,
 #'
 #' @param connectome
 #' @param optimize.flows
+#' @param cell.cols
 #'
 #' @return
 #' @export
 #'
 #' @examples
-PlotAlluvium <- function(connectome, optimize.flows = T) {
+PlotAlluvium <- function(connectome, optimize.flows = T, cell.cols = NULL) {
   # if(nrow(connectome)>1e5) {
   #   connectome <- connectome %>% group_by(source,receiver,pair) %>% top_n(n=10,wt=target_weight)
   # }
@@ -399,6 +400,11 @@ PlotAlluvium <- function(connectome, optimize.flows = T) {
     x[4] <- ifelse(x[3]=="Sender\ncell",paste0(x[4],"_send"),x[4])
   })
 
+  if(is.null(cell.cols)) {
+    ct <- unique(c(connectome$source_type,connectome$receiver_type))
+    cell.cols <- pal_igv()(length(ct))
+    names(cell.cols) <- ct
+  }
   sender_fill <- cell.cols
   unique_genes <- unique(c(connectome_plot$Ligand,
                            connectome_plot$Receptor,

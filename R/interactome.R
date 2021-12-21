@@ -190,7 +190,7 @@ GenerateInteractome <- function(seu, ranked_genes = ranked_genes, cluster_result
       stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
     }
     message(paste("Using database",database))
-    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% dplyr::mutate_all(as.character))
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }
@@ -358,10 +358,10 @@ BuildWeightedInteraction_test <- function (object, nichenet_results = late1.nnr,
   recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
   genes.use = union(ligands.use, recepts.use)
   cell.exprs <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,]) %>% rownames_to_column(var = "gene")
-  ligands.df <- data.frame(lit.put[, c(1,2)]) %>% mutate_all(as.character)
+  ligands.df <- data.frame(lit.put[, c(1,2)]) %>% dplyr::mutate_all(as.character)
   colnames(ligands.df) <- c("pair","ligands")
   ligands.df$id <- 1:nrow(ligands.df)
-  recepts.df <- data.frame(lit.put[, c(1,4)]) %>% mutate_all(as.character)
+  recepts.df <- data.frame(lit.put[, c(1,4)]) %>% dplyr::mutate_all(as.character)
   colnames(recepts.df) <- c("pair","recepts")
   recepts.df$id <- 1:nrow(recepts.df)
 
@@ -491,9 +491,9 @@ GeneratePrioritizedInteractome <- function(seu, ranked_genes = ranked_genes, clu
       stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
     }
     message(paste("Using database",database))
-    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    ligands <- as.character(lit.put[, "source_genesymbol"])
-    recepts <- as.character(lit.put[, "target_genesymbol"])
+    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% dplyr::mutate_all(as.character))
+    ligands <- as.character(pairs[, "source_genesymbol"])
+    recepts <- as.character(pairs[, "target_genesymbol"])
   }
   colnames(pairs) <- c("ligand","receptor")
 
@@ -548,7 +548,7 @@ GeneratePrioritizedInteractome <- function(seu, ranked_genes = ranked_genes, clu
   connectome <- connectome[connectome$edgeweight>0,]
 
   connectome %<>% dplyr::filter(connectome$lig_geneset==T | connectome$rec_geneset==T) %>%
-    mutate(cell_ligand = paste(receiver,ligand,sep = "_"))
+    dplyr::mutate(cell_ligand = paste(receiver,ligand,sep = "_"))
 
   connectome$source_type <- mapvalues(connectome$source,
                                       from = colnames(seu),
@@ -560,7 +560,7 @@ GeneratePrioritizedInteractome <- function(seu, ranked_genes = ranked_genes, clu
                                       warn_missing = F)
 
   nnr_oi_targets <- bind_rows(lapply(nichenet_results, function(x) {x[[2]]}), .id = "cell") %>%
-    mutate(cell_ligand = paste(cell,ligand,sep = "_"))
+    dplyr::mutate(cell_ligand = paste(cell,ligand,sep = "_"))
 
   connectome <- merge(connectome, nnr_oi_targets[,c("cell_ligand","target","weight")],by = "cell_ligand", all.x = T, all.y = F)
 

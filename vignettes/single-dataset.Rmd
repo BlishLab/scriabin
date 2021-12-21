@@ -41,7 +41,7 @@ scriabin::load_nichenet_database()
 
 ```{r}
 library(SeuratData)
-# InstallData("ifnb")
+InstallData("ifnb")
 
 ifnb <- UpdateSeuratObject(LoadData("ifnb"))
 
@@ -73,6 +73,7 @@ Scriabin has 15 commonly used ligand-receptor databases built-in (thanks to the 
 Here, we use the OmniPath database as default.
 
 ```{r}
+# 6 minutes
 subseu <- BuildPriorInteraction(subseu, database = "OmniPath")
 
 # the number of row and column clusters can be automatically detected using the elbow method by omitting the row.k and col.k arguments. However, this takes some time with larger matrices.
@@ -91,6 +92,7 @@ For the purpose of analyzing a single dataset we can define a single-cell gene s
 Then, we use this information in building an interaction matrix by specifying the `specific` argument in `BuildPriorInteraction`
 
 ```{r}
+# 8 minutes
 ranked_genes <- crGeneSig(subseu, variant_features = VariableFeatures(subseu))
 subseu <- BuildPriorInteraction(subseu, specific = T, ranked_genes = ranked_genes,
                                 graph_name = "specific_prior")
@@ -143,6 +145,7 @@ I want to know how CD14 monocyte sending cluster 4 and CD16 monocyte receiving c
 Optionally, `PlotAlluvium_nocells` will create the same plot but without strata for individual sender/receiver cells.
 
 ```{r}
+# 5 minutes
 senders = names(hm$SCluster)[hm$SCluster=="4"]
 receivers = names(hm$RCluster)[hm$RCluster=="3"]
 ranked_genes_sub <- ranked_genes[names(ranked_genes) %in% receivers]
@@ -154,7 +157,8 @@ interactome <- GeneratePrioritizedInteractome(seu = subseu, ranked_genes = ranke
                                               nichenet_results = sub_ligands, use_clusters = F)
 
 # in situations where the resulting interactome is huge, we can visualize all the interaction paths but just the top downstream target gene for each 
-interactome_top_target <- interactome %>% group_by(source,receiver,pair) %>% top_n(n=1,wt=target_weight)
+interactome_top_target <- interactome %>% dplyr::group_by(source,receiver,pair) %>%
+  dplyr::top_n(n=1,wt=target_weight)
 
 PlotAlluvium(interactome_top_target, optimize.flows = F)
 ```
