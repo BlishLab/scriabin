@@ -4,10 +4,10 @@
 \alias{PlotAlluvium}
 \title{Title}
 \usage{
-PlotAlluvium(connectome, optimize.flows = T)
+PlotAlluvium(connectome, optimize.flows = T, cell.cols = NULL)
 }
 \arguments{
-\item{optimize.flows}{}
+\item{cell.cols}{}
 }
 \value{
 

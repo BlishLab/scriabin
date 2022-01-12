@@ -36,6 +36,7 @@ Imports:
     cowplot,
     Matrix,
     pbapply,
-    nichenetr
+    nichenetr,
+    matrixStats
 biocViews: ComplexHeatmap, CelliD
 Remotes: saeyslab/nichenetr
