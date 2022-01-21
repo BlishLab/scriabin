@@ -48,3 +48,115 @@ f
 ```
 
 
+Test for identifying interaction modules
+
+General outline: 
+Build a matrix like we do in the scInteraction function and then modularity optimization cluster that
+
+```{r}
+source("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/lentiPath/functions/WGCNA_functions.R")
+
+ifnb <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/vignette_data/ifnb_seu.rds")
+subseu <- subset(ifnb, cells = sample(colnames(ifnb),250))
+InteractionModules <- function(object, assay = "SCT", slot = "data",
+                          database = "OmniPath", ligands = NULL, 
+                          recepts = NULL,
+                          specific = F, ranked_genes = NULL,
+                          cluster_resolution = 0.1) {
+  if(database=="custom") {
+    message("Using custom database")
+    ligands <- ligands
+    recepts <- recepts
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
+  }
+  else {
+    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    if(database %notin% names(all)) {
+      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    }
+    message(paste("Using database",database))
+    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    ligands <- as.character(lit.put[, "source_genesymbol"])
+    recepts <- as.character(lit.put[, "target_genesymbol"])
+  }
+  ligands.use <- intersect(ligands, rownames(object@assays[[assay]]))
+  recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
+  genes.use = union(ligands.use, recepts.use)
+
+  if(specific) {
+    message("Only considering genes in per-cell gene signature")
+    ranked_names <- lapply(ranked_genes, function(x) {
+      names(x)
+    })
+    ranked_mat <- as.matrix(reshape2::dcast(reshape2::melt(t(bind_rows(ranked_names))), formula = value~Var1) %>% column_to_rownames("value"))
+    genes.use <- intersect(genes.use,rownames(ranked_mat))
+    ranked_mat <- ranked_mat[genes.use,]
+    cell.exprs <- GetAssayData(object, assay = assay, slot = slot)[genes.use,]
+    cell.exprs[is.na(ranked_mat)] <- 0
+    cell.exprs <- as.data.frame(cell.exprs) %>% rownames_to_column(var = "gene")
+  }
+  else {
+    cell.exprs <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,]) %>% rownames_to_column(var = "gene")
+  }
+
+  ligands.df <- data.frame(ligands)
+  ligands.df$id <- 1:nrow(ligands.df)
+  recepts.df <- data.frame(recepts)
+  recepts.df$id <- 1:nrow(recepts.df)
+  cell.exprs.rec <- merge(recepts.df, cell.exprs,
+                          by.x = "recepts", by.y = "gene", all.x = T)
+  cell.exprs.rec <- cell.exprs.rec[order(cell.exprs.rec$id),
+                                   ]
+  cell.exprs.lig <- merge(ligands.df, cell.exprs,
+                          by.x = "ligands", by.y = "gene", all.x = T)
+  cell.exprs.lig <- cell.exprs.lig[order(cell.exprs.lig$id),
+                                   ]
+  sources <- colnames(object)
+  targets <- colnames(object)
+
+  message(paste("\nGenerating Interaction Matrix..."))
+
+  a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+  a[is.na(a)] <- 0
+  b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
+  b[is.na(b)] <- 0
+
+  m <- as.sparse(sqrt((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
+  colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
+  cna <- rep(colnames(object),ncol(object))
+  cnb <- rep(colnames(object),each=ncol(object))
+  rownames(m) <- paste(cna,cnb,sep = "=")
+  m <- m[,colSums(m)>0]
+  return(m)
+  message("Creating single-cell interaction object")
+  
+  
+  test_tom <- WGCNA_TOM(t(m), softPower = 5)
+  m_cor <- 0.5+(0.5*corSparse(m))
+  softPower = 1
+  adj <- m_cor^softPower
+  
+  
+  tom <- TOMsimilarity(adj, TOMType = "signed")
+  geneTree = flashClust(as.dist(1-tom), method = "complete")
+  dynamicMods = cutreeDynamic(dendro = geneTree,  method="tree", minClusterSize = 5);
+  dynamicColors = labels2colors(dynamicMods)
+  plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut", dendroLabels = FALSE, hang = 0.03, addGuide = TRUE, guideHang = 0.05, main = "Gene dendrogram and module colors")
+    module_colors= setdiff(unique(dynamicColors), "grey")
+  modules = lapply(module_colors, function(x){colnames(m)[which(dynamicColors==x)]})
+  names(modules) = module_colors
+  return(results)
+}
+
+test_m <- InteractionModules(object = subseu)
+```
+
+End thoughts Jan 20 2022: 
+I need to make sure that a gene-wise correlation is really what I'm looking for here. For example, if there's a single ligand-receptor pair that's not strongly co-expressed with anything else, will that get picked up? Would that even biologically exist?
+
+
+
+
+
