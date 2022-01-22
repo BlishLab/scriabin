@@ -54,15 +54,17 @@ General outline:
 Build a matrix like we do in the scInteraction function and then modularity optimization cluster that
 
 ```{r}
-source("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/lentiPath/functions/WGCNA_functions.R")
+# source("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/lentiPath/functions/WGCNA_functions.R")
 
-ifnb <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/vignette_data/ifnb_seu.rds")
-subseu <- subset(ifnb, cells = sample(colnames(ifnb),250))
+# ifnb <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/vignette_data/ifnb_seu.rds")
+subseu <- subset(ifnb, cells = sample(colnames(ifnb),100))
 InteractionModules <- function(object, assay = "SCT", slot = "data",
                           database = "OmniPath", ligands = NULL, 
-                          recepts = NULL,
+                          recepts = NULL, iterate.threshold = 500,
+                          n.iterate = NULL,
                           specific = F, ranked_genes = NULL,
-                          cluster_resolution = 0.1) {
+                          return.mat = F, softPower = 1, 
+                          min.size = 5) {
   if(database=="custom") {
     message("Using custom database")
     ligands <- ligands
@@ -116,45 +118,97 @@ InteractionModules <- function(object, assay = "SCT", slot = "data",
   sources <- colnames(object)
   targets <- colnames(object)
 
-  message(paste("\nGenerating Interaction Matrix..."))
-
   a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
   a[is.na(a)] <- 0
   b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
   b[is.na(b)] <- 0
 
-  m <- as.sparse(sqrt((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
-  colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
-  cna <- rep(colnames(object),ncol(object))
-  cnb <- rep(colnames(object),each=ncol(object))
-  rownames(m) <- paste(cna,cnb,sep = "=")
-  m <- m[,colSums(m)>0]
-  return(m)
-  message("Creating single-cell interaction object")
-  
-  
-  test_tom <- WGCNA_TOM(t(m), softPower = 5)
-  m_cor <- 0.5+(0.5*corSparse(m))
-  softPower = 1
+  if(ncol(object)>iterate.threshold) {
+    message("\nIteratively generating interaction matrix")
+    if(is.null(n.iterate)) {
+      n.rep <- round(sqrt(ncol(object)/iterate.threshold))
+    }
+    else {
+      n.rep = n.iterate
+    }
+    mat_list <- pblapply(seq_along(1:n.rep), function(z) {
+      x <- a[,sample(1:ncol(a),iterate.threshold)]
+      y <- b[,colnames(x)]
+      m <- sqrt(as.sparse((pbsapply(1:nrow(x), function(i) tcrossprod(x[i, ], y[i, ])))))
+      colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
+      cna <- rep(colnames(object),ncol(object))
+      cnb <- rep(colnames(object),each=ncol(object))
+      rownames(m) <- paste(cna,cnb,sep = "=")
+      m_cor <- 0.5+(0.5*corSparse(m))
+    })
+    #filter to intersection 
+    #grab all colnames
+    cor_names <- Reduce(intersect,lapply(mat_list,colnames))
+    mat_list <- lapply(mat_list, function(x) {x[cor_names,cor_names]})
+    m_cor <- apply(simplify2array(mat_list), 1:2, median)
+  }
+  else {
+    message(paste("\nGenerating Interaction Matrix..."))
+    m <- sqrt(as.sparse((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
+    colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
+    cna <- rep(colnames(object),ncol(object))
+    cnb <- rep(colnames(object),each=ncol(object))
+    rownames(m) <- paste(cna,cnb,sep = "=")
+    m <- m[,colSums(m)>0]
+    m_cor <- 0.5+(0.5*corSparse(m))
+  }
+
+  message("Identifying modules")
   adj <- m_cor^softPower
-  
-  
   tom <- TOMsimilarity(adj, TOMType = "signed")
   geneTree = flashClust(as.dist(1-tom), method = "complete")
-  dynamicMods = cutreeDynamic(dendro = geneTree,  method="tree", minClusterSize = 5);
+  dynamicMods = cutreeDynamic(dendro = geneTree,  
+                              method="tree", minClusterSize = min.size);
   dynamicColors = labels2colors(dynamicMods)
   plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut", dendroLabels = FALSE, hang = 0.03, addGuide = TRUE, guideHang = 0.05, main = "Gene dendrogram and module colors")
     module_colors= setdiff(unique(dynamicColors), "grey")
   modules = lapply(module_colors, function(x){colnames(m)[which(dynamicColors==x)]})
   names(modules) = module_colors
-  return(results)
+  if(return.mat) {
+    return(list(cor_mat = m_cor, modules = modules))
+  }
+  else {
+    return(modules)
+  }
 }
 
-test_m <- InteractionModules(object = subseu)
+
+#Single dataset
+
+##Build matrix
+##Find modules
+
+#Multi-dataset
+
+##Build
+
+# test <- corSparse(m)
+# colnames(test) <- colnames(m)
+# rownames(test) <- colnames(m)
+# pdf("~/Downloads/p.pdf", height = 200, width = 200)
+# Heatmap(as.matrix(test))
+# dev.off()
+
+
+
+test_m <- InteractionModules(object = subseu, return.mat = T, iterate.threshold = 250)
 ```
 
 End thoughts Jan 20 2022: 
 I need to make sure that a gene-wise correlation is really what I'm looking for here. For example, if there's a single ligand-receptor pair that's not strongly co-expressed with anything else, will that get picked up? Would that even biologically exist?
+
+
+
+Plan:
+Discover modules as described above.
+Find the consensus matrix for all samples to be compared (take intersection of the l-r pairs that are there, take median of matrix). Find modules there
+Use consensus modules as baseline. Threshold Jaccard index to group the per-sample modules into the consensus. 
+
 
 
 
