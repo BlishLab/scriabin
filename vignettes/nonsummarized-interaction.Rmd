@@ -54,17 +54,18 @@ General outline:
 Build a matrix like we do in the scInteraction function and then modularity optimization cluster that
 
 ```{r}
-# source("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/lentiPath/functions/WGCNA_functions.R")
+source("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/lentiPath/functions/WGCNA_functions.R")
 
-# ifnb <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/vignette_data/ifnb_seu.rds")
-subseu <- subset(ifnb, cells = sample(colnames(ifnb),100))
+ifnb <- readRDS("/Volumes/GoogleDrive/My Drive/Blish Lab/00 - All Server Data and Folders/Aaron/Data/scRNA-seq/SIV/vignette_data/ifnb_seu.rds")
+subseu <- subset(ifnb, cells = sample(colnames(ifnb),2000))
 InteractionModules <- function(object, assay = "SCT", slot = "data",
                           database = "OmniPath", ligands = NULL, 
                           recepts = NULL, iterate.threshold = 500,
                           n.iterate = NULL,
                           specific = F, ranked_genes = NULL,
                           return.mat = F, softPower = 1, 
-                          min.size = 5) {
+                          min.size = 5, plot.mods = F,
+                          tree.cut.quantile = 0.4) {
   if(database=="custom") {
     message("Using custom database")
     ligands <- ligands
@@ -134,12 +135,16 @@ InteractionModules <- function(object, assay = "SCT", slot = "data",
     mat_list <- pblapply(seq_along(1:n.rep), function(z) {
       x <- a[,sample(1:ncol(a),iterate.threshold)]
       y <- b[,colnames(x)]
-      m <- sqrt(as.sparse((pbsapply(1:nrow(x), function(i) tcrossprod(x[i, ], y[i, ])))))
+      m <- sqrt(as.sparse((sapply(1:nrow(x), function(i) tcrossprod(x[i, ], y[i, ])))))
       colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
-      cna <- rep(colnames(object),ncol(object))
-      cnb <- rep(colnames(object),each=ncol(object))
+      cna <- rep(colnames(x),ncol(x))
+      cnb <- rep(colnames(x),each=ncol(x))
       rownames(m) <- paste(cna,cnb,sep = "=")
+      m <- m[,colSums(m)>0]
       m_cor <- 0.5+(0.5*corSparse(m))
+      rownames(m_cor) <- colnames(m)
+      colnames(m_cor) <- colnames(m)
+      m_cor
     })
     #filter to intersection 
     #grab all colnames
@@ -158,43 +163,195 @@ InteractionModules <- function(object, assay = "SCT", slot = "data",
     m_cor <- 0.5+(0.5*corSparse(m))
   }
 
+  # find a way to penalize this matrix based on if the ligand or receptor is the same. That doesn't seem like true covariation. 
+  
+  # rnm <- sub("=.*", "\\1", rownames(m_cor))
+  # cnm <- sub("=.*", "\\1", colnames(m_cor))
+  # m_cor[rnm[row(m_cor)] == cnm[col(m_cor)]] <- 0.5
+
   message("Identifying modules")
   adj <- m_cor^softPower
   tom <- TOMsimilarity(adj, TOMType = "signed")
+  colnames(tom) <- rownames(tom) <- rownames(m_cor)
   geneTree = flashClust(as.dist(1-tom), method = "complete")
   dynamicMods = cutreeDynamic(dendro = geneTree,  
-                              method="tree", minClusterSize = min.size);
+                              method="tree", minClusterSize = min.size, cutHeight = quantile(geneTree$height, 0.5));
   dynamicColors = labels2colors(dynamicMods)
-  plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut", dendroLabels = FALSE, hang = 0.03, addGuide = TRUE, guideHang = 0.05, main = "Gene dendrogram and module colors")
+  if(plot.mods) {
+      plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut", dendroLabels = FALSE, hang = 0.03, addGuide = TRUE, guideHang = 0.05, main = "Gene dendrogram and module colors")
+  }
     module_colors= setdiff(unique(dynamicColors), "grey")
   modules = lapply(module_colors, function(x){colnames(m)[which(dynamicColors==x)]})
   names(modules) = module_colors
+  
+  #Calculate module membership and intramodule connectivity
+    
+  #create color list
+  module_melt <- reshape2::melt(modules)
+  colors <- mapvalues(colnames(m), 
+                      from = module_melt$value, 
+                      to = module_melt$L1, 
+                      warn_missing = F)
+  colors[colors %notin% unique(module_melt$L1)] <- "grey"
+  
+  Alldegrees1=intramodularConnectivity(adj, colors)
+  m <- as.matrix(m)
+  
+  message("Calculating module eigengenes")
+  datME=moduleEigengenes(m,colors)$eigengenes
+  datKME=signedKME(m, datME, outputColumnName="")
+  datKME$grey <- NULL
+  
+  im_results <- cbind(datKME, IMcon = Alldegrees1$kTotal)
+  
+  
   if(return.mat) {
-    return(list(cor_mat = m_cor, modules = modules))
+    return(list(cor_mat = m_cor, tom = tom, modules = modules, connectivity = im_results))
   }
   else {
-    return(modules)
+    return(list(modules = modules, connectivity = im_results))
   }
 }
 
 
-#Single dataset
+FindAllModules <- function(seu, group.by = NULL, baseline.ident = NULL, n.replicate = 10000, ...) {
+  if(is.null(group.by)) {
+    message("Grouping by current idents")
+    seu$mod_grouping <- Idents(seu)
+    group.by = "mod_grouping"
+  }
+  if(is.null(baseline.ident)) {
+    message("Finding baseline interaction modules from whole object")
+    baseline_mods <- InteractionModules(object = seu, return.mat = F)
+  }
+  else {
+    message(paste0("Using identity ",baseline.ident," for baseline interaction modules"))
+    subseu <- subset(seu, cells = colnames(subseu)[subseu@meta.data[,group.by]==baseline.ident])
+    baseline_mods <- InteractionModules(object = seu, return.mat = F)
+    qseu <- subset(seu, cells = colnames(seu)[colnames(seu) %notin% subseu])
+  }
+  if(is.null(baseline.ident)) {
+    qseu <- seu
+  }
+  seu_split <- SplitObject(qseu, split.by = group.by)
+  q_mods <- lapply(seu_split, function(x) {
+    InteractionModules(object = x, return.mat = T, tree.cut.quantile = 0.2)
+  })
+  
+  mod_list <- unlist(lapply(q_mods,function(x){x[[3]]}), recursive = F)
+  tom_list <- lapply(q_mods, function(x){x[[2]]})
+  m_cor_list <- lapply(q_mods,function(x){x[[1]]})
+  
+  #Merge similar modules
+  message("Merging similar modules")
+  lrsum <- matrix(ncol = length(names(mod_list)), nrow = length(unique(unlist(mod_list))))
+  colnames(lrsum) <- names(mod_list)
+  rownames(lrsum) <- unique(unlist(mod_list))
+  
+  for (i in 1:nrow(lrsum)){
+    for (k in colnames(lrsum)) {
+      lrsum[i,k] <- ifelse(rownames(lrsum)[i] %in% mod_list[[k]],1,0)
+    }
+  }
+  
+  d <- as.matrix(dist.binary(t(lrsum), method = 1))
+  d <- 1-d^2
+  tomerge <- which(d>0.15&d<1)
+  partners <- unique(bind_rows(lapply(seq_along(1:length(tomerge)), function(x) {
+    k <- arrayInd(tomerge[x],dim(d))
+    y <- sort(c(rownames(d)[k[,1]],colnames(d)[k[,2]]))
+    data.frame(a = y[1], b = y[2], ind = d[d>0.15&d<1][x])
+  }))) %>% arrange(ind)
+  partners <- partners[!(duplicated(partners$a))]
+  partners <- partners[!(duplicated(partners$b))]
+  for (i in 1:nrow(partners)) {
+    mod_list[[length(mod_list)+1]] <- unique(c(mod_list[[partners[i,"a"]]],
+                                               mod_list[[partners[i,"b"]]]))
+    mod_list[partners[i,"a"]] <- NULL
+    mod_list[partners[i,"b"]] <- NULL
+    names(mod_list)[length(mod_list)] <- paste(partners[i,"a"],partners[i,"b"],sep = "=")
+  }
 
-##Build matrix
-##Find modules
 
-#Multi-dataset
+  #Test module significance in each sample
+  message("Testing module significance")
+  random_connectivity <- function(m_cor=m_cor,mod=mod) {
+    vars <- sample(colnames(m_cor),length(mod))
+    return(mean(m_cor[vars,vars]))
+  }
+  mod_sign <- lapply(seq_along(1:length(m_cor_list)), function(x) {
+    tmp_m_cor <- m_cor_list[[x]]
+    tmp_mod_sign <- unlist(pblapply(seq_along(1:length(mod_list)), function(y) {
+      random_distribution <- replicate(n.replicate, random_connectivity(m_cor = tmp_m_cor, mod = mod_list[[y]]))
+      connectivity <- mean(tmp_m_cor[rownames(tmp_m_cor) %in% mod_list[[y]],
+                                     colnames(tmp_m_cor) %in% mod_list[[y]]])
+      sum(connectivity<random_distribution)/n.replicate
+    }))
+  })
+  
+  #now return data
+  #make a dataframe of module p values for each sample
+  #merge this with a gene-wise modularity dataframe (remember to handle merged modules)
+  
+}
 
-##Build
+#plot any modules that are significant in some samples but not others
 
-# test <- corSparse(m)
-# colnames(test) <- colnames(m)
-# rownames(test) <- colnames(m)
-# pdf("~/Downloads/p.pdf", height = 200, width = 200)
-# Heatmap(as.matrix(test))
-# dev.off()
+#score cells for all modules
+
+#UMAP of sender/receiver module scores
+
+#weight module scores by NicheNet ranked ligands
+
+#summarize sender/receiver expression for each module by cell type
+```
 
 
+
+```{r}
+test <- unlist(unlist(q_mods, recursive = F)[c(2,4)],recursive = F)
+test <- mod_list
+lrsum <- matrix(ncol = length(names(test)), nrow = length(unique(unlist(test))))
+colnames(lrsum) <- names(test)
+rownames(lrsum) <- unique(unlist(test))
+
+for (i in 1:nrow(lrsum)){
+  for (k in colnames(lrsum)) {
+    lrsum[i,k] <- ifelse(rownames(lrsum)[i] %in% test[[k]],1,0)
+  }
+}
+
+d <- as.matrix(dist.binary(t(lrsum), method = 1))
+d <- 1-d^2
+d <- d[grepl("STIM",rownames(d)),grepl("CTRL",colnames(d))]
+Heatmap(d)
+
+#let's make sure this is reasonable. What I'm saying is that CTRL.red and blue are LOST in stim. and that STIM.greenyellow, meganta, midnightblue, and lightcyan are all present ONLY in stim. 
+
+lost_mods <- c("IMMUNE_CTRL.modules.pink")
+test[lost_mods]
+
+test_seu <- ScoreInteractionModules(ifnb, test[new_mods])
+
+ScoreInteractionModules <- function(seu, mods) {
+  l_mods <- lapply(mods, function(x) {
+    unique(unlist(lapply(str_split(x, pattern = "="), function(y) {y[[1]]})))
+  })
+  r_mods <- lapply(mods, function(x) {
+    unique(unlist(lapply(str_split(x, pattern = "="), function(y) {y[[2]]})))
+  })
+  seu <- AddModuleScore(seu, features = l_mods, name = "ligands")
+  seu <- AddModuleScore(seu, features = r_mods, name = "receptors")
+  return(seu)
+}
+
+new_mods <- c("IMMUNE_STIM.modules.tan","IMMUNE_STIM.modules.black","IMMUNE_STIM.modules.purple")
+
+test[c("IMMUNE_STIM.modules.green","IMMUNE_CTRL.modules.yellow")]
+
+DotPlot(test_seu, features = c("ligands1","ligands2","ligands3","receptors1","receptors2","receptors3"),
+        split.by = "orig.ident", group.by = "seurat_annotations")
+saveit(height = 10, width = 8, format = "pdf")
 
 test_m <- InteractionModules(object = subseu, return.mat = T, iterate.threshold = 250)
 ```
