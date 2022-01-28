@@ -295,12 +295,6 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
     }
   }
 
-  #check coarse cell IDs are present in all samples to be aligned
-  ct_check <- as.data.frame(table(seu@meta.data[,split.by],seu@meta.data[,coarse_cell_types]))
-  if(sum(ct_check$Freq==0)>0) {
-    stop("Coarse cell types must be present in all samples to be binned")
-  }
-
   if(is.null(optim_k.unique)) {
     n <- length(unique(seu@meta.data[,split.by]))
     optim_k.unique = n*2/3
@@ -309,6 +303,11 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
 
   if(!is.null(coarse_cell_types)) {
     message("Binning with coarse cell types")
+    #check coarse cell IDs are present in all samples to be aligned
+    ct_check <- as.data.frame(table(seu@meta.data[,split.by],seu@meta.data[,coarse_cell_types]))
+    if(sum(ct_check$Freq==0)>0) {
+      stop("Coarse cell types must be present in all samples to be binned")
+    }
     seu_ct_split <- SplitObject(seu, split.by = coarse_cell_types)
     bin_ids <- lapply(seq_along(1:length(seu_ct_split)), function(x) {
       seu_oi <- AlignDatasets(seuObj = seu,
