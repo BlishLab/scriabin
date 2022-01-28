@@ -289,10 +289,10 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
 {
   if(is.null(coarse_cell_types)) {
     warning("It is recommend to specify coarse cell types to improve bin significance testing. \nWhen not specified, Scriabin defaults to generating dataset-wide bins and testing significance based on cluster results.")
-    status <- readline(prompt = "Do you wish to continue? (yes/no): ")
-    if(status=="no"){
-      stop("Terminated by user.")
-    }
+    # status <- readline(prompt = "Do you wish to continue? (yes/no): ")
+    # if(status=="no"){
+    #   stop("Terminated by user.")
+    # }
   }
 
   if(is.null(optim_k.unique)) {
