@@ -369,5 +369,47 @@ Use consensus modules as baseline. Threshold Jaccard index to group the per-samp
 
 
 
+```{r}
+test <- RunNICHES(ifnb, species = "human")
+```
+
+
+```{r}
+demo <- test$CellToCell
+demo <- ScaleData(demo)
+demo <- FindVariableFeatures(demo)
+demo <- RunPCA(demo)
+ElbowPlot(demo,ndims=50)
+PCHeatmap(demo,dims = 1:6,balanced = T,cells = 100)
+demo <- RunUMAP(demo,dims = 1:6)
+DimPlot(demo,reduction = 'umap',group.by = 'VectorType',label = F) + NoLegend()
+```
+
+
+```{r}
+imputed <- SeuratWrappers::RunALRA(ifnb)
+scc.imputed <- RunNICHES(imputed,
+                 assay = 'alra',
+                 species = 'human',
+                 LR.database = 'fantom5',
+                 CellToCell = T)
+demo.2 <- scc.imputed$CellToCell
+demo.2 <- ScaleData(demo.2)
+demo.2 <- FindVariableFeatures(demo.2)
+demo.2 <- RunPCA(demo.2)
+ElbowPlot(demo.2,ndims=50)
+PCHeatmap(demo.2,dims = 1:6,balanced = T,cells = 100)
+demo.2 <- RunUMAP(demo.2,dims = 1:6)
+DimPlot(demo.2,reduction = 'umap',group.by = 'VectorType',label = T) + NoLegend()
+
+mark <- FindAllMarkers(demo.2,min.pct = 0.25,only.pos = T,test.use = "roc")
+GOI_niche <- mark %>% group_by(cluster) %>% top_n(5,myAUC)
+DoHeatmap(demo.2,features = unique(GOI_niche$gene))+ 
+  scale_fill_gradientn(colors = c("grey","white", "blue"))
+
+```
+
+
+
 
 

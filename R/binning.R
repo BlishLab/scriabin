@@ -125,6 +125,16 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
     # message("Finished an iteration")
   }
 
+  ###Check completion
+
+  if(check_completion(nbs_completion)) {
+    message(paste0("Finished! Found ",length(unique(ids))," bins"))
+    seuObj$bins <- ids
+    seuObj <- RenameCells(seuObj, new.names = orig_cell_names)
+    return(seuObj)
+  }
+
+
   ###Assign anything in a bad neighborhood to one that's more complete
   cells_reassign <- nbs_completion %>% dplyr::filter(unique_types<optim_k.unique) %>% pull(cell)
   bad_nbs <- nbs_unique %>% dplyr::filter(unique_types<optim_k.unique) %>% pull(id)
@@ -439,6 +449,17 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
 
 }
 
+#' Helper function to check completion of bins
+#'
+#' @param nbs
+#'
+#' @return logical indicating if binning is complete
+#' @export
+#'
+#' @examples
+check_completion <- function(nbs) {
+  unique(nbs_completion$unique_types)==length(unique(nbs$ident))
+}
 
 #' Heatmap of bin-annotation overlap
 #'
