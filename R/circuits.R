@@ -19,10 +19,10 @@ FindCircuits <- function(seu, nnr, ranked_genes, tps, split.by = "orig.ident",
   nnr <- nnr[colnames(seu)]
   ranked_genes <- ranked_genes[colnames(seu)]
 
-  gsub_function = ".*[=]([^.]+)[.].*"
+  gsub_function = ".*[_]([^.]+)[.].*"
   orig_cell_names <- colnames(seu)
 
-  sample_ids <- paste("project",seu@meta.data[,split.by], sep = "=")
+  sample_ids <- paste("project",seu@meta.data[,split.by], sep = "_")
   new_cell_names <- paste(sample_ids, 1:ncol(seu), sep = ".")
 
   seu <- RenameCells(seu, new.names = new_cell_names)
