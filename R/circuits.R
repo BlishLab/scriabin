@@ -4,17 +4,25 @@
 #' @param nnr
 #' @param ranked_genes
 #' @param tps
-#' @param gsub_function
 #' @param assay.use
 #' @param slot.use
 #' @param pearson.cutoff
+#' @param split.by
 #'
 #' @return
 #' @export
 #'
 #' @examples
-FindCircuits <- function(seu, nnr, ranked_genes, tps, gsub_function = ".*[_]([^.]+)[.].*",
+FindCircuits <- function(seu, nnr, ranked_genes, tps, split.by = "orig.ident",
                          assay.use = "SCT", slot.use = "data", pearson.cutoff = 0.075) {
+  gsub_function = ".*[=]([^.]+)[.].*"
+  orig_cell_names <- colnames(seu)
+
+  sample_ids <- paste("project",seu@meta.data[,split.by], sep = "=")
+  new_cell_names <- paste(sample_ids, 1:ncol(seu), sep = ".")
+
+  seu <- RenameCells(seu, new.names = new_cell_names)
+
   nnr_l <- lapply(nnr, FUN = function(x) {x[[1]]}) #grabs ligands
   nnr_t <- lapply(nnr, FUN = function(x) {x[[2]]}) #grabs target links
 

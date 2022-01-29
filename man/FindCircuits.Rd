@@ -9,14 +9,14 @@ FindCircuits(
   nnr,
   ranked_genes,
   tps,
-  gsub_function = ".*[_]([^.]+)[.].*",
+  split.by = "orig.ident",
   assay.use = "SCT",
   slot.use = "data",
   pearson.cutoff = 0.075
 )
 }
 \arguments{
-\item{pearson.cutoff}{}
+\item{split.by}{}
 }
 \value{
 
