@@ -15,6 +15,10 @@
 #' @examples
 FindCircuits <- function(seu, nnr, ranked_genes, tps, split.by = "orig.ident",
                          assay.use = "SCT", slot.use = "data", pearson.cutoff = 0.075) {
+
+  nnr <- nnr[colnames(seu)]
+  ranked_genes <- ranked_genes[colnames(seu)]
+
   gsub_function = ".*[=]([^.]+)[.].*"
   orig_cell_names <- colnames(seu)
 
@@ -22,6 +26,7 @@ FindCircuits <- function(seu, nnr, ranked_genes, tps, split.by = "orig.ident",
   new_cell_names <- paste(sample_ids, 1:ncol(seu), sep = ".")
 
   seu <- RenameCells(seu, new.names = new_cell_names)
+  names(nnr) <- names(ranked_genes) <- colnames(seu)
 
   nnr_l <- lapply(nnr, FUN = function(x) {x[[1]]}) #grabs ligands
   nnr_t <- lapply(nnr, FUN = function(x) {x[[2]]}) #grabs target links
