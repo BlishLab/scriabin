@@ -115,6 +115,10 @@ FindCircuits <- function(seu, nnr, ranked_genes, tps, split.by = "orig.ident",
   links <- merge(links, nnr_filtered[,c("cell.z","ligand.y")], by = "ligand.y", all.x = F, all.y = F)
   links$tp1 <- tps[1]
   links$tp2 <- tps[2]
+  links$cell.x <- plyr::mapvalues(links$cell.x, from=new_cell_names, to = orig_cell_names, warn_missing = F)
+  links$cell.y <- plyr::mapvalues(links$cell.y, from=new_cell_names, to = orig_cell_names, warn_missing = F)
+  links$cell.z <- plyr::mapvalues(links$cell.z, from=new_cell_names, to = orig_cell_names, warn_missing = F)
+
 
   return(links[,c("tp1","ligand.x","pearson","cell.x",
                   "target","bins","cell.y","cell.z","tp2")])
