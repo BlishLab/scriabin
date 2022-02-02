@@ -7,6 +7,100 @@
 #' @param database
 #' @param ligands
 #' @param recepts
+#'
+#' @return
+#' @export
+#'
+#' @examples
+GenerateCCIM <- function(object, assay = "SCT", slot = "data",
+                         database = "OmniPath", ligands = NULL,
+                         recepts = NULL, senders = NULL, receivers = NULL) {
+  #code to connect with l-r databases adapted from Connectome (Raredon, et al.)
+  if(database=="custom") {
+    message("Using custom database")
+    ligands <- ligands
+    recepts <- recepts
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
+  }
+  else {
+    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    if(database %notin% names(all)) {
+      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    }
+    message(paste("Using database",database))
+    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    ligands <- as.character(lit.put[, "source_genesymbol"])
+    recepts <- as.character(lit.put[, "target_genesymbol"])
+  }
+  ligands.use <- intersect(ligands, rownames(object@assays[[assay]]))
+  recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
+  genes.use = union(ligands.use, recepts.use)
+
+  if(is.null(senders) & is.null(receivers)){
+    cell.exprs <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,]) %>% rownames_to_column(var = "gene")
+    ligands.df <- data.frame(ligands)
+    ligands.df$id <- 1:nrow(ligands.df)
+    recepts.df <- data.frame(recepts)
+    recepts.df$id <- 1:nrow(recepts.df)
+    cell.exprs.lig <- merge(ligands.df, cell.exprs,
+                            by.x = "ligands", by.y = "gene", all.x = T)
+    cell.exprs.lig <- cell.exprs.lig[order(cell.exprs.lig$id),
+                                     ]
+    cell.exprs.rec <- merge(recepts.df, cell.exprs,
+                            by.x = "recepts", by.y = "gene", all.x = T)
+    cell.exprs.rec <- cell.exprs.rec[order(cell.exprs.rec$id),
+                                     ]
+
+  }
+  else {
+    if(is.null(senders)) {
+      senders <- colnames(object)
+    }
+    if(is.null(receivers)) {
+      receivers <- colnames(object)
+    }
+    cell.exprsl <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,senders]) %>% rownames_to_column(var = "gene")
+    cell.exprsr <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,receivers]) %>% rownames_to_column(var = "gene")
+    ligands.df <- data.frame(ligands)
+    ligands.df$id <- 1:nrow(ligands.df)
+    recepts.df <- data.frame(recepts)
+    recepts.df$id <- 1:nrow(recepts.df)
+    cell.exprs.lig <- merge(ligands.df, cell.exprsl,
+                            by.x = "ligands", by.y = "gene", all.x = T)
+    cell.exprs.lig <- cell.exprs.lig[order(cell.exprs.lig$id),
+                                     ]
+    cell.exprs.rec <- merge(recepts.df, cell.exprsr,
+                            by.x = "recepts", by.y = "gene", all.x = T)
+    cell.exprs.rec <- cell.exprs.rec[order(cell.exprs.rec$id),
+                                     ]
+  }
+
+  a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+  a[is.na(a)] <- 0
+  b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
+  b[is.na(b)] <- 0
+
+  message(paste("\nGenerating Interaction Matrix..."))
+  m <- sqrt(as.sparse((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
+  colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
+  cna <- rep(colnames(object),ncol(object))
+  cnb <- rep(colnames(object),each=ncol(object))
+  rownames(m) <- paste(cna,cnb,sep = "=")
+
+  return(CreateSeuratObject(counts = t(m), assay = "CCIM"))
+}
+
+
+#' Title
+#'
+#' @param object
+#' @param assay
+#' @param slot
+#' @param database
+#' @param ligands
+#' @param recepts
 #' @param specific
 #' @param ranked_genes
 #' @param correct.depth
