@@ -85,8 +85,8 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
   message(paste("\nGenerating Interaction Matrix..."))
   m <- sqrt(as.sparse((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
   colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
-  cna <- rep(colnames(object),ncol(object))
-  cnb <- rep(colnames(object),each=ncol(object))
+  cna <- rep(senders,length(senders))
+  cnb <- rep(receivers,each=length(receivers))
   rownames(m) <- paste(cna,cnb,sep = "=")
 
   return(CreateSeuratObject(counts = t(m), assay = "CCIM"))
