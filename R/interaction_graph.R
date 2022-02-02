@@ -7,6 +7,8 @@
 #' @param database
 #' @param ligands
 #' @param recepts
+#' @param senders
+#' @param receivers
 #'
 #' @return
 #' @export

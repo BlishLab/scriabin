@@ -16,7 +16,7 @@ GenerateCCIM(
 )
 }
 \arguments{
-\item{recepts}{}
+\item{receivers}{}
 }
 \value{
 
