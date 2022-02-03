@@ -1084,5 +1084,35 @@ PlotAlluvium_nocells <- function(connectome, optimize.flows = T) {
 
 
 
-
+#' Title
+#'
+#' @param ccim
+#' @param seu
+#' @param features
+#' @param type_plot
+#' @param ...
+#'
+#' @return
+#' @export
+#'
+#' @examples
+CCIMDimPlot <- function(ccim, seu,
+                        features = NULL,
+                        type_plot = c("sender","receiver"), ...) {
+  #find cells of interest in the original object
+  type_plot <- match.arg(arg = type_plot, several.ok = F)
+  p <- FeaturePlot(seu, features = features, combine = F)
+  pdata <- as.data.frame(t(do.call(rbind,lapply(p,function(x) {x$data[,4]}))))
+  colnames(pdata) <- features
+  rownames(pdata) <- colnames(seu)
+  ccim_meta <- merge((ccim@meta.data %>% rownames_to_column("cell")),
+                     (pdata %>% rownames_to_column(type_plot)),
+                     by = type_plot, all.y = F)
+  ccim_meta <- ccim_meta[match(colnames(ccim),ccim_meta$cell),]
+  rownames(ccim_meta) <- NULL
+  ccim_meta %<>%
+    column_to_rownames("cell")
+  ccim@meta.data <- ccim_meta
+  FeaturePlot(ccim, features = features, ... )
+}
 
