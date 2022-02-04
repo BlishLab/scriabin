@@ -1093,18 +1093,26 @@ PlotAlluvium_nocells <- function(connectome, optimize.flows = T) {
 #' @param ...
 #'
 #' @return
+#' @import magrittr
 #' @export
 #'
 #' @examples
-CCIMDimPlot <- function(ccim, seu,
+CCIMFeaturePlot <- function(ccim, seu,
                         features = NULL,
                         type_plot = c("sender","receiver"), ...) {
   #find cells of interest in the original object
   type_plot <- match.arg(arg = type_plot, several.ok = F)
   p <- FeaturePlot(seu, features = features, combine = F)
-  pdata <- as.data.frame(t(do.call(rbind,lapply(p,function(x) {x$data[,4]}))))
-  colnames(pdata) <- features
-  rownames(pdata) <- colnames(seu)
+  if(length(features)>1) {
+    pdata <- as.data.frame(t(do.call(rbind,lapply(p,function(x) {x$data[,4]}))))
+    colnames(pdata) <- features
+    rownames(pdata) <- colnames(seu)
+  }
+  else {
+    pdata <- as.data.frame(x=p[[1]]$data[,4])
+    colnames(pdata) <- features
+    rownames(pdata) <- colnames(seu)
+  }
   ccim_meta <- merge((ccim@meta.data %>% rownames_to_column("cell")),
                      (pdata %>% rownames_to_column(type_plot)),
                      by = type_plot, all.y = F)

@@ -97,6 +97,31 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
   return(CreateSeuratObject(counts = Matrix::t(m), assay = "CCIM"))
 }
 
+#' Title
+#'
+#' @param ccim_seu
+#' @param seu
+#' @param columns_map
+#'
+#' @return
+#' @import stringr
+#' @export
+#'
+#' @examples
+MapMetaData <- function(ccim_seu, seu, columns_map = NULL) {
+  if(is.null(columns_map)) {
+    message("Mapping all metadata columns")
+    columns_map <- colnames(seu@meta.data)
+  }
+  ccim_seu$sender <- stringr::word(colnames(ccim_seu),1,sep = "=")
+  ccim_seu$receiver <- stringr::word(colnames(ccim_seu),2,sep = "=")
+  for (i in 1:length(columns_map)) {
+    ccim_seu@meta.data[,paste("sender",columns_map[i],sep = "_")] <- scriabin::mapvalues(ccim_seu$sender, from = colnames(seu), to = seu@meta.data[,columns_map[i]], warn_missing = F)
+    ccim_seu@meta.data[,paste("receiver",columns_map[i],sep = "_")] <- scriabin::mapvalues(ccim_seu$receiver, from = colnames(seu), to = seu@meta.data[,columns_map[i]], warn_missing = F)
+  }
+  return(ccim_seu)
+}
+
 
 #' Title
 #'
