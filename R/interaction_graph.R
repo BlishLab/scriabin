@@ -41,6 +41,7 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
   genes.use = union(ligands.use, recepts.use)
 
   if(is.null(senders) & is.null(receivers)){
+    senders <- receivers <- colnames(object)
     cell.exprs <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,]) %>% rownames_to_column(var = "gene")
     ligands.df <- data.frame(ligands)
     ligands.df$id <- 1:nrow(ligands.df)
