@@ -93,7 +93,7 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
   cna <- rep(senders,length(receivers))
   cnb <- rep(receivers,each=length(senders))
   rownames(m) <- paste(cna,cnb,sep = "=")
-  m <- m[,colSums(m)>0]
+  m <- m[,Matrix::colSums(m)>0]
   return(CreateSeuratObject(counts = Matrix::t(m), assay = "CCIM"))
 }
 
