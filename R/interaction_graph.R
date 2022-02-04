@@ -11,6 +11,7 @@
 #' @param receivers
 #'
 #' @return
+#' @import dplyr pbapply
 #' @export
 #'
 #' @examples
@@ -111,6 +112,7 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
 #' @param graph_name
 #'
 #' @return
+#' @import dplyr
 #' @export
 #'
 #' @examples
@@ -226,6 +228,7 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
 #' @param graph_name
 #'
 #' @return
+#' @import dplyr tidyft tibble
 #' @export
 #'
 #' @examples
@@ -345,6 +348,7 @@ BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assa
 #' @param split.by
 #'
 #' @return
+#' @import reshape2 pbapply
 #' @export
 #'
 #' @examples
@@ -406,6 +410,7 @@ AssembleInteractionGraphs <- function(seu, by = "weighted", name = "rv", split.b
 #' @param cluster_resolution
 #'
 #' @return
+#' @import dplyr
 #' @export
 #'
 #' @examples

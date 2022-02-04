@@ -17,7 +17,6 @@ Imports:
     magrittr,
     graphics,
     stats,
-    plyr,
     dplyr,
     tidyft,
     tibble,
