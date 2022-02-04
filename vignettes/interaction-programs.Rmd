@@ -1,0 +1,37 @@
+---
+title: "Discovery of co-varying interaction programs"
+author: "Aaron J. Wilk"
+date: "2021-01-20"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{single-dataset}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+Here we will illustrate the third Scriabin workflow: 
+
+Load libraries
+
+```{r}
+library(Seurat)
+library(SeuratData)
+library(scriabin)
+library(tidyverse)
+```
+
+We will find 
+To install the panc8 dataset:
+```{r}
+install.packages("https://seurat.nygenome.org/src/contrib/panc8.SeuratData_3.0.2.tar.gz", repos = NULL, type = "source") 
+library(panc8.SeuratData)
+panc8 <- LoadData("panc8")
+```
+
+
+
+```{r}
+panc_ip <- FindAllModules(panc8, group.by = "tech", )
+
+```
+

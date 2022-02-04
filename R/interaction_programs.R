@@ -21,12 +21,12 @@
 #' @export
 #'
 #' @examples
-InteractionModules <- function(object, assay = "SCT", slot = "data",
+InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                database = "OmniPath", ligands = NULL,
                                recepts = NULL, iterate.threshold = 500,
                                n.iterate = NULL,
                                specific = F, ranked_genes = NULL,
-                               return.mat = F, softPower = 1,
+                               return.mat = T, softPower = 1,
                                min.size = 5, plot.mods = F,
                                tree.cut.quantile = 0.4) {
   if(database=="custom") {
@@ -132,12 +132,6 @@ InteractionModules <- function(object, assay = "SCT", slot = "data",
     m_cor <- 0.5+(0.5*corSparse(m))
   }
 
-  # find a way to penalize this matrix based on if the ligand or receptor is the same. That doesn't seem like true covariation.
-
-  # rnm <- sub("=.*", "\\1", rownames(m_cor))
-  # cnm <- sub("=.*", "\\1", colnames(m_cor))
-  # m_cor[rnm[row(m_cor)] == cnm[col(m_cor)]] <- 0.5
-
   message("Identifying modules")
   adj <- m_cor^softPower
   tom <- TOMsimilarity(adj, TOMType = "signed")
@@ -164,15 +158,6 @@ InteractionModules <- function(object, assay = "SCT", slot = "data",
   colors[colors %notin% unique(module_melt$L1)] <- "grey"
 
   Alldegrees1=intramodularConnectivity(adj, colors)
-  # m <- as.matrix(m)
-  #
-  # message("Calculating module eigengenes")
-  # datME=moduleEigengenes(m,colors)$eigengenes
-  # datKME=signedKME(m, datME, outputColumnName="")
-  # datKME$grey <- NULL
-  #
-  # im_results <- cbind(datKME, IMcon = Alldegrees1$kTotal)
-
 
   if(return.mat) {
     return(list(cor_mat = m_cor, tom = tom, modules = modules, connectivity = Alldegrees1))
@@ -191,13 +176,16 @@ InteractionModules <- function(object, assay = "SCT", slot = "data",
 #' @param n.replicate
 #' @param min.members
 #' @param return.mats
+#' @param sim_threshold
 #' @param ...
 #'
 #' @return
 #' @export
 #'
 #' @examples
-FindAllModules <- function(seu, group.by = NULL, n.replicate = 10000, min.members = 1, return.mats = F, ...) {
+FindAllInteractionPrograms <- function(seu, group.by = NULL,
+                           return.mats = F, sim_threshold = 0.15,
+                           ...) {
   if(is.null(group.by)) {
     message("Grouping by current idents")
     seu$mod_grouping <- Idents(seu)
@@ -206,12 +194,14 @@ FindAllModules <- function(seu, group.by = NULL, n.replicate = 10000, min.member
 
   seu_split <- SplitObject(qseu, split.by = group.by)
   q_mods <- lapply(seu_split, function(x) {
-    InteractionModules(object = x, return.mat = T, tree.cut.quantile = 0.2)
+    InteractionPrograms(object = x, return.mat = T, tree.cut.quantile = 0.2)
   })
 
   mod_list <- unlist(lapply(q_mods,function(x){x[[3]]}), recursive = F)
   tom_list <- lapply(q_mods, function(x){x[[2]]})
   m_cor_list <- lapply(q_mods,function(x){x[[1]]})
+  con_list <- lapply(q_mods,function(x){x[[4]]})
+  names(con_list) <- names(tom_list) <- names(m_cor_list) <- names(q_mods)
 
   #Merge similar modules
   message("Merging similar modules")
@@ -227,7 +217,7 @@ FindAllModules <- function(seu, group.by = NULL, n.replicate = 10000, min.member
 
   d <- as.matrix(dist.binary(t(lrsum), method = 1))
   d <- 1-d^2
-  tomerge <- which(d>0.15&d<1)
+  tomerge <- which(d>sim_threshold&d<1)
   partners <- unique(bind_rows(lapply(seq_along(1:length(tomerge)), function(x) {
     k <- arrayInd(tomerge[x],dim(d))
     y <- sort(c(rownames(d)[k[,1]],colnames(d)[k[,2]]))
@@ -243,20 +233,51 @@ FindAllModules <- function(seu, group.by = NULL, n.replicate = 10000, min.member
     names(mod_list)[length(mod_list)] <- paste(partners[i,"a"],partners[i,"b"],sep = "=")
   }
 
+  return(list(cor_mat = m_cor_list, tom = tom_list, modules = mod_list, connectivity = con_list))
+}
 
+
+#' Title
+#'
+#' @param ip_data
+#' @param n.replicate
+#' @param min.members
+#'
+#' @return
+#' @import pbapply dplyr purrr
+#' @export
+#'
+#' @examples
+InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.members = 1) {
+  if(length(ip_data[[1]])==1) {
+    m_cor_list = list(ip_data[[1]])
+    tom_list = list(ip_data[[2]])
+    con_list = list(ip_data[[4]])
+    mod_list <- ip_data[[3]]
+  }
+  else {
+    m_cor_list <- ip_data[[1]]
+    tom_list <- ip_data[[2]]
+    con_list <- ip_data[[4]]
+    mod_list <- ip_data[[3]]
+  }
   #Test module significance in each sample
   message("Testing module significance")
-  random_connectivity <- function(m_cor=m_cor,mod=mod) {
+  random_connectivity_test <- function(m_cor=m_cor,mod=mod) {
     vars <- sample(colnames(m_cor),length(mod))
-    return(mean(m_cor[vars,vars]))
+    a <- as.vector(m_cor[mod,mod])
+    b <- as.vector(m_cor[vars,vars])
+    return(wilcox.test(a,b,alternative = "greater")$p.value)
   }
   mod_sign <- lapply(seq_along(1:length(m_cor_list)), function(x) {
     tmp_m_cor <- m_cor_list[[x]]
     tmp_mod_sign <- unlist(pblapply(seq_along(1:length(mod_list)), function(y) {
-      random_distribution <- replicate(n.replicate, random_connectivity(m_cor = tmp_m_cor, mod = mod_list[[y]]))
-      connectivity <- mean(tmp_m_cor[rownames(tmp_m_cor) %in% mod_list[[y]],
-                                     colnames(tmp_m_cor) %in% mod_list[[y]]])
-      sum(connectivity<random_distribution)/n.replicate
+      # random_distribution <- replicate(n.replicate, random_connectivity(m_cor = tmp_m_cor, mod = mod_list[[y]]))
+      # connectivity <- mean(tmp_m_cor[rownames(tmp_m_cor) %in% mod_list[[y]],
+      #                                colnames(tmp_m_cor) %in% mod_list[[y]]])
+      # sum(connectivity<random_distribution)/n.replicate
+      p <- replicate(n.replicate,random_connectivity_test(m_cor = tmp_m_cor, mod = mod_list[[y]]))
+      sum(p<0.05)/n.replicate
     }))
   })
 
@@ -285,7 +306,7 @@ FindAllModules <- function(seu, group.by = NULL, n.replicate = 10000, min.member
   mod_df <- merge(mod_df, as.data.frame(mod_sign_m) %>%
                     rownames_to_column(var = "name"), by = "name", all.y = F)
   con_sum <- lapply(1:length(q_mods), function(x) {
-    y <- as.data.frame(q_mods[[x]]$connectivity) %>%
+    y <- as.data.frame(con_list[[x]]) %>%
       rownames_to_column(var = "lr_pair") %>% select(lr_pair,kTotal)
     colnames(y) <- c("lr_pair",
                      paste(names(q_mods)[x],
@@ -296,12 +317,7 @@ FindAllModules <- function(seu, group.by = NULL, n.replicate = 10000, min.member
     mutate_all(range01) %>% rownames_to_column(var = "lr_pair")
   mod_df <- merge(mod_df, con_sum, by = "lr_pair", all.y = F) %>%
     arrange(name)
-  if(return.mats) {
-    return(list(mod_df,q_mods))
-  }
-  else {
-    return(mod_df)
-  }
+  return(mod_df)
 
 }
 
@@ -314,7 +330,7 @@ FindAllModules <- function(seu, group.by = NULL, n.replicate = 10000, min.member
 #' @export
 #'
 #' @examples
-ScoreInteractionModules <- function(seu, mods) {
+ScoreInteractionPrograms <- function(seu, mods) {
   if(class(mods)=="data.frame") {
     mod_names <- unique(mods$name)
     mods <- lapply(seq_along(1:length(mod_names)), function(x) {
