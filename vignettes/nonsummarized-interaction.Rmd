@@ -36,10 +36,14 @@ DimPlot(panc_fl, group.by = "celltype", label = T, repel = T) + NoLegend()
 
 
 ```{r}
-panc_fl_ccim <- GenerateCCIM(panc_fl)
-panc_fl_ccim_seu <- CreateSeuratObject(panc_fl_ccim, assay = "CCIM") %>%
+
+### NEED TO TRANSLATE METADATA INTO THIS NEW SEURAT OBJECT ###
+panc_fl_ccim <- GenerateCCIM(panc_fl) %>%
   ScaleData() %>%
   FindVariableFeatures() %>%
-  RunPCA()
+  RunPCA() %>% 
+  RunUMAP(dims = 1:10)
+
+DimPlot(panc_fl_ccim)
 ```
 
