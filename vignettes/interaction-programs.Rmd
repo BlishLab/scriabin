@@ -40,7 +40,7 @@ DimPlot(panc_id, group.by = "celltype", label = T, repel = T) + NoLegend()
 
 
 ```{r}
-panc_ip <- InteractionPrograms(panc8)
+panc_ip <- InteractionPrograms(panc_id, iterate.threshold = 300)
 
 ```
 
