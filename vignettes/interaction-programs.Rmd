@@ -18,6 +18,8 @@ library(Seurat)
 library(SeuratData)
 library(scriabin)
 library(tidyverse)
+library(ComplexHeatmap)
+library(cowplot)
 ```
 
 We will find 
@@ -38,9 +40,61 @@ panc_id <- SCTransform(panc_id, verbose = F) %>%
 DimPlot(panc_id, group.by = "celltype", label = T, repel = T) + NoLegend()
 ```
 
+Now we find interaction programs, score them for statistical significance, and then score all single cells in the dataset on the expression of these programs
 
 ```{r}
+#find interaction programs
 panc_ip <- InteractionPrograms(panc_id, iterate.threshold = 300)
+
+#test for interaction program significance
 panc_ip_sig <- InteractionProgramSignificance(panc_ip, n.replicate = 500)
+
+#score cells by expression of interaction program
+panc_id <- ScoreInteractionPrograms(panc_id, panc_ip_sig)
+```
+
+Let's visualize average expression of these interaction programs per cell type
+
+```{r}
+panc_id_ip_lig <- as.matrix(panc_id@meta.data %>% 
+  select("celltype",
+         starts_with("ligands")) %>%
+  group_by(celltype) %>%
+  summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
+Heatmap(panc_id_ip_lig, show_column_names = F)
+
+panc_id_ip_rec <- as.matrix(panc_id@meta.data %>% 
+  select("celltype",
+         starts_with("receptors")) %>%
+  group_by(celltype) %>%
+  summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
+Heatmap(panc_id_ip_rec, show_column_names = F)
+```
+
+We find several modules with shared expression patterns in stellate cells, but higher expression in activated vs. quiescent stellate cells. Who do they communicate with?
+
+```{r}
+act_stellate_ip <- panc_id_ip_lig["activated_stellate",]
+poi <- gsub("ligands_","",names(which(act_stellate_ip==max(act_stellate_ip))))
+
+#Seurat's FeaturePlot has a nice option to blend expression of two features together on the same plot
+p <- FeaturePlot(panc_id, 
+          features = c(paste0("ligands_",poi),
+                            paste0("receptors_",poi)), 
+          blend = T, combine = F, 
+          cols = c("grey90","purple","yellowgreen"), order = T)
+p[[3]] + NoLegend()
+
+DimPlot(panc_id, group.by = "celltype", label = T, repel = T) + NoLegend()
+```
+
+In this module we see highly specific ligand expression by activated stellate cells which send to endothelial cells. Let's take a look at the genes within this module. 
+
+```{r}
+moi <- reshape2::melt(mod_df %>% dplyr::filter(name==poi) %>%
+  select("lr_pair",contains("connectivity"))) %>% arrange(-value)
+moi$lr_pair <- factor(moi$lr_pair, levels = unique(moi$lr_pair))
+ggplot(moi, aes(x = lr_pair, y = value, color = variable)) + 
+  geom_point() + theme_cowplot() + ggpubr::rotate_x_text() + labs(x = NULL, y = "Intramodular\nconnectivity")
 ```
 
