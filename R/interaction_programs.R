@@ -18,7 +18,7 @@
 #' @param tree.cut.quantile
 #'
 #' @return
-#' @import qlcMatrix
+#' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2
 #' @export
 #'
 #' @examples
@@ -152,7 +152,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
 
   #create color list
   module_melt <- reshape2::melt(modules)
-  colors <- plyr::mapvalues(colnames(m_cor),
+  colors <- scriabin::mapvalues(colnames(m_cor),
                             from = module_melt$value,
                             to = module_melt$L1,
                             warn_missing = F)
