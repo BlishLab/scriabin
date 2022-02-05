@@ -1,5 +1,5 @@
 ---
-title: "Comparative CCC analysis with Scriabin"
+title: "Scriabin's summarized interaction graph workflow"
 author: "Aaron J. Wilk"
 date: "2021-12-15"
 output: rmarkdown::html_vignette
@@ -16,8 +16,6 @@ knitr::opts_chunk$set(
 )
 ```
 
-In this vignette, we will analyze a cell-cell communication within a single dataset at single-cell resolution
-
 # Prepare Scriabin analysis
 
 ## Load required packages and expression data
@@ -25,6 +23,8 @@ In this vignette, we will analyze a cell-cell communication within a single data
 ### Load packages
 
 ```{r setup}
+library(Seurat)
+library(SeuratData)
 library(scriabin)
 ```
 
@@ -34,18 +34,29 @@ library(scriabin)
 scriabin::load_nichenet_database()
 ```
 
+For this vignette, we will be using Seurat's IFNB stimulation dataset of PBMCs, which is easily installed and loaded via SeuratData. 
 
 ### Read in the gene expression data
 
-We will be using the same dataset analyzed in the single-dataset vignette. Please see that vignette for generating the Seurat object we will use in this vignette
-
 ```{r}
-ifnb
+library(SeuratData)
+InstallData("ifnb")
+
+ifnb <- UpdateSeuratObject(LoadData("ifnb"))
+
+ifnb <- PercentageFeatureSet(ifnb, pattern = "MT-", col.name = "percent.mt") %>%
+  SCTransform(ifnb, vars.to.regress = "percent.mt", verbose = F) %>%
+  RunPCA(ifnb, verbose = F) %>% 
+  FindNeighbors(ifnb, dims = 1:30, verbose = F) %>%
+  FindClusters(ifnb, verbose = F) %>%
+  RunUMAP(ifnb, dims = 1:30, verbose = F)
 
 DimPlot(ifnb, label = T, repel = T) + NoLegend()
 DimPlot(ifnb, label = T, repel = T, group.by = "seurat_annotations") + NoLegend()
 DimPlot(ifnb, group.by = "stim")
 ```
+
+This dataset is composed of two sub-datasets: PBMCs stimulated with IFNB (STIM) or control (CTRL). 
 
 If we assume there is no batch effect between these two datasets, we can observe from these dimensionality reduction projections the intense transcriptional perturbation caused by this stimulation. This is one situation in which it is easy to see why clustering/subclustering for high resolution CCC analysis can be a problematic task: the degree of perturbation is so high that the monocytes from these two datasets will never cluster together. We need a way to align these subspaces together. Given a monocyte in CTRL, what is its molecular counterpart in STIM? 
 
@@ -71,7 +82,7 @@ ifnb$coarse_ident <- mapvalues(ifnb$seurat_annotations, from = unique(ifnb$seura
                                       "T/misc","T/misc","T/misc","B",
                                       "B","myeloid","myeloid","T/misc","T/misc"))
 
-test <- BinDatasets(ifnb, split.by = "stim", dims = 1:30, 
+ifnb <- BinDatasets(ifnb, split.by = "stim", dims = 1:30, 
                     coarse_cell_types = "coarse_ident", sigtest_cell_types = "seurat_annotations")
 ```
 
@@ -81,11 +92,13 @@ Currently only longitudinal and binary comparisons are supported.
 
 ```{r}
 ifnb_split <- SplitObject(ifnb, split.by = "stim")
-ifnb_split <- pblapply(ifnb_split, function(x) {BuildPriorInteraction(x, correct.depth = F)})
+sum_ig <- AssembleInteractionGraphs(ifnb, by = "prior", split.by = "stim")
+ifnb_split <- pblapply(ifnb_split, function(x) {BuildPriorInteraction(x, correct.depth = T)})
 ogig <- lapply(ifnb_split, function(x) {
   as.matrix(x@graphs$prior_interaction)
 })
 ```
 
+These interaction graphs can now be compared to determine which cells communication is predicted to change the most in magnitude between the conditions. This set of sender-receiver cells can be used as input to constructing a cell-cell interaction matrix as described in the single-dataset vignette.
 
 
