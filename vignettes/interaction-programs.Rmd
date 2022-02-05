@@ -31,7 +31,16 @@ panc8 <- LoadData("panc8")
 
 
 ```{r}
-panc_ip <- FindAllModules(panc8, group.by = "tech", )
+panc_id <- subset(panc8, cells = colnames(panc8)[panc8$tech=="indrop"])
+panc_id <- SCTransform(panc_id, verbose = F) %>%
+  RunPCA(verbose = F) %>%
+  RunUMAP(dims = 1:30, verbose = F)
+DimPlot(panc_id, group.by = "celltype", label = T, repel = T) + NoLegend()
+```
+
+
+```{r}
+panc_ip <- InteractionPrograms(panc8)
 
 ```
 

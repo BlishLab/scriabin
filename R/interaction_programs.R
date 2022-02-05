@@ -103,7 +103,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
       cna <- rep(colnames(x),ncol(x))
       cnb <- rep(colnames(x),each=ncol(x))
       rownames(m) <- paste(cna,cnb,sep = "=")
-      m <- m[,colSums(m)>0]
+      m <- m[,Matrix::colSums(m)>0]
       m_cor <- 0.5+(0.5*corSparse(m))
       rownames(m_cor) <- colnames(m)
       colnames(m_cor) <- colnames(m)
@@ -128,7 +128,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     cna <- rep(colnames(object),ncol(object))
     cnb <- rep(colnames(object),each=ncol(object))
     rownames(m) <- paste(cna,cnb,sep = "=")
-    m <- m[,colSums(m)>0]
+    m <- m[,Matrix::colSums(m)>0]
     m_cor <- 0.5+(0.5*corSparse(m))
   }
 
