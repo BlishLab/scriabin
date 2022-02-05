@@ -1,2 +1,17 @@
 # scriabin
-Analysis of cell-cell communication at single-cell resolution
+Single-cell resolution interaction analysis through binning
+
+## Goal
+Scriabin aims to provide a comprehensive view of cell-cell communication (CCC) at the single-cell level without requiring subsampling or aggregation. 
+
+## Summary
+Scriabin is a computational framework for analysis of cell-cell communication at single-cell resolution. Scriabin consists of 3 main workflows depending on dataset size and analytical goals: 1. the cell-cell interaction matrix workflow, optimal for smaller datasets, analyzes communication methods used for each cell-cell pair in the dataset; 2. the summarized interaction graph workflow, designed for large comparative analyses, identifies cell-cell pairs with different total communicative potential between samples; and, 3) the interaction program discovery workflow, suitable for any dataset size, finds modules of co-expressed ligand-receptor pairs. 
+
+## Installation
+Scriabin is implemented in R. To install: 
+```
+devtools::install_github("BlishLab/scriabin", ref = "main")
+```
+
+## Vignettes
+Vignettes are available in the vignettes directory of this repo.
