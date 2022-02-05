@@ -245,22 +245,24 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL,
 #' @param min.members
 #'
 #' @return
-#' @import pbapply dplyr purrr
+#' @import pbapply plyr dplyr purrr
 #' @export
 #'
 #' @examples
 InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.members = 1) {
-  if(length(ip_data[[1]])==1) {
+  if(class(ip_data[[1]])[1]=="matrix") {
     m_cor_list = list(ip_data[[1]])
     tom_list = list(ip_data[[2]])
     con_list = list(ip_data[[4]])
     mod_list <- ip_data[[3]]
+    sample_names = "sample"
   }
   else {
     m_cor_list <- ip_data[[1]]
     tom_list <- ip_data[[2]]
     con_list <- ip_data[[4]]
     mod_list <- ip_data[[3]]
+    sample_names <- names(m_cor_list)
   }
   #Test module significance in each sample
   message("Testing module significance")
@@ -278,14 +280,14 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
       #                                colnames(tmp_m_cor) %in% mod_list[[y]]])
       # sum(connectivity<random_distribution)/n.replicate
       p <- replicate(n.replicate,random_connectivity_test(m_cor = tmp_m_cor, mod = mod_list[[y]]))
-      sum(p<0.05)/n.replicate
+      sum(p>0.05)/n.replicate
     }))
   })
 
   #are any modules non-significant across all samples? If so, remove.
   mod_sign_m <- t(do.call(rbind,mod_sign))
   rownames(mod_sign_m) <- names(mod_list)
-  colnames(mod_sign_m) <- paste(names(q_mods),"pval",sep = "_")
+  colnames(mod_sign_m) <- paste(sample_names,"pval",sep = "_")
   n_nonsig <- apply(mod_sign_m,1,function(x) {sum(x>0.05)})
   mod_list <- mod_list[n_nonsig<ncol(mod_sign_m)]
 
@@ -301,16 +303,20 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
   #now return data
   #make a dataframe of module p values for each sample
   #merge this with a gene-wise modularity dataframe (remember to handle merged modules)
-  mod_df <- data.frame(lr_pair=unlist(mod_list)) %>%
-    rownames_to_column("name") %>%
-    dplyr::mutate(name = gsub('[[:digit:]]+', '', name))
+  range01 <- function(x){(x-min(x))/(max(x)-min(x))}
+  mod_df <- reshape2::melt(plyr::ldply(mod_list, rbind), id.var = ".id") %>%
+    select(-variable) %>% dplyr::filter(!is.na(value))
+  colnames(mod_df) <- c("name","lr_pair")
+  # mod_df <- data.frame(lr_pair=unlist(mod_list, use.names = T)) %>%
+  #   rownames_to_column("name") %>%
+  #   dplyr::mutate(name = gsub('[[:digit:]]+', '', name))
   mod_df <- merge(mod_df, as.data.frame(mod_sign_m) %>%
                     rownames_to_column(var = "name"), by = "name", all.y = F)
-  con_sum <- lapply(1:length(q_mods), function(x) {
+  con_sum <- lapply(1:length(m_cor_list), function(x) {
     y <- as.data.frame(con_list[[x]]) %>%
       rownames_to_column(var = "lr_pair") %>% select(lr_pair,kTotal)
     colnames(y) <- c("lr_pair",
-                     paste(names(q_mods)[x],
+                     paste(sample_names[x],
                            "connectivity",sep = "_"))
     return(y)
   }) %>% purrr::reduce(full_join, by = "lr_pair") %>%

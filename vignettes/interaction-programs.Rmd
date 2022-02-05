@@ -41,6 +41,6 @@ DimPlot(panc_id, group.by = "celltype", label = T, repel = T) + NoLegend()
 
 ```{r}
 panc_ip <- InteractionPrograms(panc_id, iterate.threshold = 300)
-
+panc_ip_sig <- InteractionProgramSignificance(panc_ip, n.replicate = 500)
 ```
 
