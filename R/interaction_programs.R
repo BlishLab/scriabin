@@ -18,6 +18,7 @@
 #' @param tree.cut.quantile
 #'
 #' @return
+#' @import qlcMatrix
 #' @export
 #'
 #' @examples
