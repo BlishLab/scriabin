@@ -314,7 +314,7 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
                     rownames_to_column(var = "name"), by = "name", all.y = F)
   con_sum <- lapply(1:length(m_cor_list), function(x) {
     y <- as.data.frame(con_list[[x]]) %>%
-      rownames_to_column(var = "lr_pair") %>% select(lr_pair,kTotal)
+      rownames_to_column(var = "lr_pair") %>% dplyr::select(lr_pair,kTotal)
     colnames(y) <- c("lr_pair",
                      paste(sample_names[x],
                            "connectivity",sep = "_"))
