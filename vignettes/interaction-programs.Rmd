@@ -4,7 +4,7 @@ author: "Aaron J. Wilk"
 date: "2021-01-20"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{single-dataset}
+  %\VignetteIndexEntry{interaction-programs}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
