@@ -25,7 +25,8 @@ library(cowplot)
 We will find 
 To install the panc8 dataset:
 ```{r}
-install.packages("https://seurat.nygenome.org/src/contrib/panc8.SeuratData_3.0.2.tar.gz", repos = NULL, type = "source") 
+if (!requireNamespace("panc8.SeuratData", quietly = TRUE))
+  install.packages("https://seurat.nygenome.org/src/contrib/panc8.SeuratData_3.0.2.tar.gz", repos = NULL, type = "source") 
 library(panc8.SeuratData)
 panc8 <- LoadData("panc8")
 ```
