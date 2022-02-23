@@ -11,7 +11,8 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
 Suggests: 
     knitr,
-    rmarkdown
+    rmarkdown,
+    SeuratData
 VignetteBuilder: knitr
 Imports: 
     magrittr,
@@ -38,4 +39,6 @@ Imports:
     nichenetr,
     matrixStats
 biocViews: ComplexHeatmap, CelliD
-Remotes: saeyslab/nichenetr
+Remotes: 
+    saeyslab/nichenetr,
+    satijalab/seurat-data
