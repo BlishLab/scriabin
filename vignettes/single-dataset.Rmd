@@ -32,7 +32,6 @@ panc8 <- LoadData("panc8")
 
 Analyze the fluidigmc1 dataset for the single dataset tutorial
 
-Analyze the indrop dataset for the interaction programs tutorial
 ```{r}
 panc_fl <- subset(panc8, cells = colnames(panc8)[panc8$tech=="fluidigmc1"])
 panc_fl <- SCTransform(panc_fl, verbose = F) %>%
@@ -41,12 +40,15 @@ panc_fl <- SCTransform(panc_fl, verbose = F) %>%
 DimPlot(panc_fl, group.by = "celltype", label = T, repel = T) + NoLegend()
 ```
 
-Is there communication heterogeneity between alpha and beta cells?
+Let's comprehensively examine the communicative heterogeneity that exists between beta cells as senders and all other cell types as receivers. 
 
-First we generate a cell-cell interaction matrix object on the alpha and beta cells in the dataset. Then we scale, find variable features, run PCA and UMAP, find neighbor graphs and clusters, treating this matrix just like we would a gene expression matrix.
+First we generate a cell-cell interaction matrix object. Then we scale, find variable features, run PCA and UMAP, find neighbor graphs and clusters, treating this matrix just like we would a gene expression matrix.
 
 ```{r}
-panc_fl_ccim <- GenerateCCIM(subset(panc_fl, cells = colnames(panc_fl)[panc_fl$celltype %in% c("alpha","beta")]))
+panc_fl_ccim <- GenerateCCIM(panc_fl, 
+                             senders = colnames(panc_fl)[panc_fl$celltype=="beta"],
+                             receivers = colnames(panc_fl)[panc_fl$celltype %notin% "beta"])
+panc_fl_ccim <- MapMetaData(panc_fl_ccim, seu = panc_fl)
 panc_fl_ccim <- ScaleData(panc_fl_ccim) %>% 
   FindVariableFeatures() %>%
   RunPCA() %>% 
@@ -54,30 +56,30 @@ panc_fl_ccim <- ScaleData(panc_fl_ccim) %>%
   FindNeighbors(dims = 1:10) %>%
   FindClusters(resolution = 0.2)
 
-p1 <- DimPlot(panc_fl_ccim, group.by = "sender_celltype")
-p2 <- DimPlot(panc_fl_ccim, group.by = "receiver_celltype")
-p1+p2
-
+DimPlot(panc_fl_ccim, group.by = "receiver_celltype")
 DimPlot(panc_fl_ccim, label = T, repel = T) + NoLegend()
 ```
 
-First, there's some interesting heterogeneity here: alpha-beta or beta-alpha sender-receiver pairs do not all appear to interact in the same way. Further, we visually see strong separation between cell-cell pairs with different sender-receiver cell type combinations. 
+First, there's some interesting heterogeneity here: beta-alpha sender-receiver pairs do not all appear to interact in the same way. Further, we visually see strong separation between cell-cell pairs with different sender-receiver cell type combinations. 
 
-Some clusters of cell-cell pairs with the same sender annotation contain receivers of different annotations (eg. cluster 0), perhaps indicating these sender cells use similar patterns of ligand expression to communicate with both cell types. The converse is true of other clusters (eg. cluster 6). 
+Some clusters of cell-cell pairs with the same sender annotation contain receivers of different annotations (eg. cluster 3), perhaps indicating these sender cells use similar patterns of ligand expression to communicate with both cell types. 
 
-Next, we can identify what ligand-receptor pairs are differentially expressed between these clusters of CCC by calling FindMarkers. Clusters 4 and 5 look particularly curious, where in both clusters alpha cells are the receivers from either alpha (4) or beta (5) cells.
+Next, we can identify what ligand-receptor pairs are differentially expressed between these clusters of CCC by calling FindMarkers. Clusters 3 and 10 look particularly curious, where in both clusters alpha cells are the receivers.
 
 ```{r}
-cluster4_5.edges <- FindMarkers(panc_fl_ccim, ident.1 = "4", ident.2 = "5")
+cluster3_10.edges <- FindMarkers(panc_fl_ccim, ident.1 = "3", ident.2 = "10")
 
-cluster4_5.edges %>% top_n(20,wt = abs(avg_log2FC))
+cluster3_10.edges %>% top_n(40,wt = abs(avg_log2FC))
 ```
 
 Scriabin also provides a utility function CCIMFeaturePlot to visualize the expression of ligands or receptors in gene expression space superimposed on cell-cell pairs.
 
 ```{r}
 CCIMFeaturePlot(panc_fl_ccim, seu = panc_fl, 
-            features = c("EFNA1","NPNT"), type_plot = "sender")
+            features = c("EFNA1"), type_plot = "sender")
+
+CCIMFeaturePlot(panc_fl_ccim, seu = panc_fl, 
+            features = c("RET"), type_plot = "receiver")
 ```
 
 
