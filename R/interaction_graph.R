@@ -118,9 +118,12 @@ MapMetaData <- function(ccim_seu, seu, columns_map = NULL) {
   #convert any factors to character
   classes <- unlist(lapply(seu@meta.data,class))[columns_map]
   col_convert <- names(classes)[classes=="factor"]
-  for(i in 1:length(col_convert)) {
-    seu@meta.data[,col_convert[i]] <- as.character(seu@meta.data[,col_convert[i]])
+  if(length(col_convert)>0) {
+    for(i in 1:length(col_convert)) {
+      seu@meta.data[,col_convert[i]] <- as.character(seu@meta.data[,col_convert[i]])
+    }
   }
+
   for (i in 1:length(columns_map)) {
     ccim_seu@meta.data[,paste("sender",columns_map[i],sep = "_")] <- scriabin::mapvalues(ccim_seu$sender, from = colnames(seu), to = seu@meta.data[,columns_map[i]], warn_missing = F)
     ccim_seu@meta.data[,paste("receiver",columns_map[i],sep = "_")] <- scriabin::mapvalues(ccim_seu$receiver, from = colnames(seu), to = seu@meta.data[,columns_map[i]], warn_missing = F)
