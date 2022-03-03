@@ -59,7 +59,8 @@ LoadLR <- function(species = "human", database = "OmniPath", ligands = NULL, rec
 #' When recepts is supplied, ligands must also be supplied and equidimensional.
 #'
 #' @return Returns a list of length 2: 1) a character vector of potential ligands, 2) a character vector of background expressed genes
-#' @export dplyr
+#' @import dplyr
+#' @export
 #'
 #' @examples
 IDPotentialLigands <- function(seu, assay = "SCT", slot = "data", min.pct = 0.025,
