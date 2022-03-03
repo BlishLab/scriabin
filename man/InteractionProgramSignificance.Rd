@@ -2,16 +2,20 @@
 % Please edit documentation in R/interaction_programs.R
 \name{InteractionProgramSignificance}
 \alias{InteractionProgramSignificance}
-\title{Title}
+\title{Test Interaction program statistical significance}
 \usage{
 InteractionProgramSignificance(ip_data, n.replicate = 10000, min.members = 1)
 }
 \arguments{
-\item{min.members}{}
+\item{ip_data}{Interaction program data, ie. the output of either \code{InteractionPrograms} or \code{FindAllInteractionPrograms}}
+
+\item{n.replicate}{Number of one-sided Mann-Whitney tests to perform to assess correlation of each module. Default: 10000}
+
+\item{min.members}{Minimum number of unique ligands or receptors in order to keep a module. Default: 1. Ie, if a module contains many ligand-receptor pairs that all share the same single ligand, this module will be discarded}
 }
 \value{
-
+Returns a data.frame of all significant modules, their connectivity p-values for each sample, and their intramodular connectivity in each sample
 }
 \description{
-Title
+Test Interaction program statistical significance
 }

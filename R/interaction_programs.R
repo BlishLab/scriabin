@@ -1,31 +1,35 @@
 
-#' Title
+#' Discover co-expressed ligand-receptor interaction programs
 #'
-#' @param object
-#' @param assay
-#' @param slot
-#' @param database
-#' @param ligands
-#' @param recepts
-#' @param iterate.threshold
-#' @param n.iterate
-#' @param specific
-#' @param ranked_genes
-#' @param return.mat
-#' @param softPower
-#' @param min.size
-#' @param plot.mods
-#' @param tree.cut.quantile
+#' @param object A seurat object
+#' @param assay Assay in Seurat object from which to pull expression values
+#' @param slot Slot within assay from which to pull expression values
+#' @param species character. Name of species from which to load ligand-receptor databases. One of: "human", "mouse", "rat". Default: "human"
+#' @param database Name of ligand-receptor database to use. Default: "OmniPath"
+#' When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+#' When species is "mouse" or "rat", only "OmniPath" is supported.
+#' To pass a custom ligand-receptor database to this function, set database = "custom"
+#' @param ligands Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+#' When ligands is supplied, recepts must also be supplied and equidimensional.
+#' @param recepts Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+#' When recepts is supplied, ligands must also be supplied and equidimensional.
+#' @param specific logical. When TRUE, consider only the genes in each cell's predefined gene signature (see crGeneSig) as expressed. Default FALSE
+#' @param ranked_genes Cell-resolved gene signatures, used only when specific = T
+#' @param return.mat logical. Returns ligand-receptor covariance matrix and TOM along with modules and intramodular connectivity. Required for significance testing.
+#' @param softPower softPower threshold for adjacency matrix
+#' @param min.size Minimum size of each interaction program
+#' @param plot.mods Plot modules and associated dendrograms during analysis
+#' @param tree.cut.quantile The dendrogram tree height quantile at which the dendrogram should be cut. Higher values lead to fewer, smaller modules.
 #'
-#' @return
+#' @return When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
 #' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2
 #' @export
 #'
 #' @examples
 InteractionPrograms <- function(object, assay = "SCT", slot = "data",
-                               database = "OmniPath", ligands = NULL,
-                               recepts = NULL, iterate.threshold = 500,
-                               n.iterate = NULL,
+                               species = "human", database = "OmniPath",
+                               ligands = NULL, recepts = NULL,
+                               iterate.threshold = 500, n.iterate = NULL,
                                specific = F, ranked_genes = NULL,
                                return.mat = T, softPower = 1,
                                min.size = 5, plot.mods = F,
@@ -37,17 +41,19 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
   }
   else {
-    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
-    if(database %notin% names(all)) {
-      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
-    }
-    message(paste("Using database",database))
-    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
-    lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    # if(database %notin% names(all)) {
+    #   stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    # }
+    # message(paste("Using database",database))
+    # pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    # lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    # lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    lit.put <- scriabin::LoadLR(species = species, database = database)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }
+
   ligands.use <- intersect(ligands, rownames(object@assays[[assay]]))
   recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
   genes.use = union(ligands.use, recepts.use)
@@ -170,23 +176,19 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
 
 
 
-#' Title
+#' Find all interaction programs in a multi-sample dataset
 #'
-#' @param seu
-#' @param group.by
-#' @param n.replicate
-#' @param min.members
-#' @param return.mats
-#' @param sim_threshold
-#' @param ...
+#' @param seu A Seurat object
+#' @param group.by Meta.data column name defining samples into which object should be split. Interaction programs will be found for each unique value in this column.
+#' @param sim_threshold During module merging from different samples, the Jaccard overlap index threshold above which modules will be merged. Default: 0.15
+#' @param ... Additional arguments passed to `InteractionPrograms`
 #'
-#' @return
+#' @return Returns a list of length 4 with ligand-receptor covariance matrices, TOMs, modules, and intramodular connectivity for each sample.
+#' @import Seurat ade4 dplyr
 #' @export
 #'
 #' @examples
-FindAllInteractionPrograms <- function(seu, group.by = NULL,
-                           return.mats = F, sim_threshold = 0.15,
-                           ...) {
+FindAllInteractionPrograms <- function(seu, group.by = NULL, sim_threshold = 0.15, ...) {
   if(is.null(group.by)) {
     message("Grouping by current idents")
     seu$mod_grouping <- Idents(seu)
@@ -195,7 +197,7 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL,
 
   seu_split <- SplitObject(qseu, split.by = group.by)
   q_mods <- lapply(seu_split, function(x) {
-    InteractionPrograms(object = x, return.mat = T, tree.cut.quantile = 0.2)
+    InteractionPrograms(object = x, return.mat = T)
   })
 
   mod_list <- unlist(lapply(q_mods,function(x){x[[3]]}), recursive = F)
@@ -222,7 +224,7 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL,
   partners <- unique(bind_rows(lapply(seq_along(1:length(tomerge)), function(x) {
     k <- arrayInd(tomerge[x],dim(d))
     y <- sort(c(rownames(d)[k[,1]],colnames(d)[k[,2]]))
-    data.frame(a = y[1], b = y[2], ind = d[d>0.15&d<1][x])
+    data.frame(a = y[1], b = y[2], ind = d[d>sim_threshold&d<1][x])
   }))) %>% arrange(-ind)
   partners <- partners[!(duplicated(partners$a)),]
   partners <- partners[!(duplicated(partners$b)),]
@@ -238,13 +240,13 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL,
 }
 
 
-#' Title
+#' Test Interaction program statistical significance
 #'
-#' @param ip_data
-#' @param n.replicate
-#' @param min.members
+#' @param ip_data Interaction program data, ie. the output of either `InteractionPrograms` or `FindAllInteractionPrograms`
+#' @param n.replicate Number of one-sided Mann-Whitney tests to perform to assess correlation of each module. Default: 10000
+#' @param min.members Minimum number of unique ligands or receptors in order to keep a module. Default: 1. Ie, if a module contains many ligand-receptor pairs that all share the same single ligand, this module will be discarded
 #'
-#' @return
+#' @return Returns a data.frame of all significant modules, their connectivity p-values for each sample, and their intramodular connectivity in each sample
 #' @import pbapply plyr dplyr purrr
 #' @export
 #'
@@ -298,7 +300,7 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
   receptors = unlist(lapply(mod_list, function(x) {
     length(unique(unlist(lapply(str_split(x, pattern = "="), function(y) {y[[2]]}))))
   })))
-  mod_list <- mod_list[lr_counts$ligands>1 & lr_counts$receptors>1]
+  mod_list <- mod_list[lr_counts$ligands>min.members & lr_counts$receptors>min.members]
 
   #now return data
   #make a dataframe of module p values for each sample
@@ -328,12 +330,15 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
 
 }
 
-#' Title
+#' Score expression of single-cells by expression of discovered interaction programs
 #'
-#' @param seu
-#' @param mods
+#' @param seu A Seurat object
+#' @param mods Interaction program data. Either the data.frame output of `InteractionProgramSignificance`, or a list of interaction program genes, as in the output of `InteractionPrograms` or `FindAllInteractionPrograms`
 #'
-#' @return
+#' @return Returns a Seurat object with interaction program scores as meta.data columns. Ligand and receptor expression of interaction programs are scored separately.
+#' The scores for sender cells (ligand expression) are stored in columns named "ligands_[interaction program name]"
+#' The scores for receiver cells (receptor expression) are stored in columns named "receptors_[interaction program name]"
+#' @import dplyr stringr Seurat
 #' @export
 #'
 #' @examples

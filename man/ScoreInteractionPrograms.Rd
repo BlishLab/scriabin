@@ -2,16 +2,20 @@
 % Please edit documentation in R/interaction_programs.R
 \name{ScoreInteractionPrograms}
 \alias{ScoreInteractionPrograms}
-\title{Title}
+\title{Score expression of single-cells by expression of discovered interaction programs}
 \usage{
 ScoreInteractionPrograms(seu, mods)
 }
 \arguments{
-\item{mods}{}
+\item{seu}{A Seurat object}
+
+\item{mods}{Interaction program data. Either the data.frame output of \code{InteractionProgramSignificance}, or a list of interaction program genes, as in the output of \code{InteractionPrograms} or \code{FindAllInteractionPrograms}}
 }
 \value{
-
+Returns a Seurat object with interaction program scores as meta.data columns. Ligand and receptor expression of interaction programs are scored separately.
+The scores for sender cells (ligand expression) are stored in columns named "ligands_\link{interaction program name}"
+The scores for receiver cells (receptor expression) are stored in columns named "receptors_\link{interaction program name}"
 }
 \description{
-Title
+Score expression of single-cells by expression of discovered interaction programs
 }

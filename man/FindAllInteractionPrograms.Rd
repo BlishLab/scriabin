@@ -2,22 +2,22 @@
 % Please edit documentation in R/interaction_programs.R
 \name{FindAllInteractionPrograms}
 \alias{FindAllInteractionPrograms}
-\title{Title}
+\title{Find all interaction programs in a multi-sample dataset}
 \usage{
-FindAllInteractionPrograms(
-  seu,
-  group.by = NULL,
-  return.mats = F,
-  sim_threshold = 0.15,
-  ...
-)
+FindAllInteractionPrograms(seu, group.by = NULL, sim_threshold = 0.15, ...)
 }
 \arguments{
-\item{...}{}
+\item{seu}{A Seurat object}
+
+\item{group.by}{Meta.data column name defining samples into which object should be split. Interaction programs will be found for each unique value in this column.}
+
+\item{sim_threshold}{During module merging from different samples, the Jaccard overlap index threshold above which modules will be merged. Default: 0.15}
+
+\item{...}{Additional arguments passed to \code{InteractionPrograms}}
 }
 \value{
-
+Returns a list of length 4 with ligand-receptor covariance matrices, TOMs, modules, and intramodular connectivity for each sample.
 }
 \description{
-Title
+Find all interaction programs in a multi-sample dataset
 }

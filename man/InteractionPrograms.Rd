@@ -2,12 +2,13 @@
 % Please edit documentation in R/interaction_programs.R
 \name{InteractionPrograms}
 \alias{InteractionPrograms}
-\title{Title}
+\title{Discover co-expressed ligand-receptor interaction programs}
 \usage{
 InteractionPrograms(
   object,
   assay = "SCT",
   slot = "data",
+  species = "human",
   database = "OmniPath",
   ligands = NULL,
   recepts = NULL,
@@ -23,11 +24,42 @@ InteractionPrograms(
 )
 }
 \arguments{
-\item{tree.cut.quantile}{}
+\item{object}{A seurat object}
+
+\item{assay}{Assay in Seurat object from which to pull expression values}
+
+\item{slot}{Slot within assay from which to pull expression values}
+
+\item{species}{character. Name of species from which to load ligand-receptor databases. One of: "human", "mouse", "rat". Default: "human"}
+
+\item{database}{Name of ligand-receptor database to use. Default: "OmniPath"
+When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+When species is "mouse" or "rat", only "OmniPath" is supported.
+To pass a custom ligand-receptor database to this function, set database = "custom"}
+
+\item{ligands}{Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+When ligands is supplied, recepts must also be supplied and equidimensional.}
+
+\item{recepts}{Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+When recepts is supplied, ligands must also be supplied and equidimensional.}
+
+\item{specific}{logical. When TRUE, consider only the genes in each cell's predefined gene signature (see crGeneSig) as expressed. Default FALSE}
+
+\item{ranked_genes}{Cell-resolved gene signatures, used only when specific = T}
+
+\item{return.mat}{logical. Returns ligand-receptor covariance matrix and TOM along with modules and intramodular connectivity. Required for significance testing.}
+
+\item{softPower}{softPower threshold for adjacency matrix}
+
+\item{min.size}{Minimum size of each interaction program}
+
+\item{plot.mods}{Plot modules and associated dendrograms during analysis}
+
+\item{tree.cut.quantile}{The dendrogram tree height quantile at which the dendrogram should be cut. Higher values lead to fewer, smaller modules.}
 }
 \value{
-
+When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
 }
 \description{
-Title
+Discover co-expressed ligand-receptor interaction programs
 }
