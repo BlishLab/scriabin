@@ -7,7 +7,13 @@
 mapvalues(x, from, to, warn_missing = TRUE)
 }
 \arguments{
-\item{warn_missing}{}
+\item{x}{the factor or vector to modify}
+
+\item{from}{a vector of the items to replace}
+
+\item{to}{a vector of replacement values}
+
+\item{warn_missing}{print a message if any of the old values are not present in x}
 }
 \value{
 

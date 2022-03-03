@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{\%notin\%}
 \alias{\%notin\%}
-\title{Title}
+\title{Convenient negation}
 \usage{
 ... \%notin\% NA
 }
@@ -10,5 +10,5 @@
 
 }
 \description{
-Title
+Convenient negation
 }

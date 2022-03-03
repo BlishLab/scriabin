@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{load_nichenet_database}
 \alias{load_nichenet_database}
-\title{Title}
+\title{Load NicheNet Database}
 \usage{
 load_nichenet_database()
 }
@@ -10,5 +10,5 @@ load_nichenet_database()
 
 }
 \description{
-Title
+Load NicheNet Database
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{resample}
 \alias{resample}
-\title{Title}
+\title{Resampling}
 \usage{
 resample(x, ...)
 }
@@ -10,5 +10,5 @@ resample(x, ...)
 
 }
 \description{
-Title
+Resampling
 }

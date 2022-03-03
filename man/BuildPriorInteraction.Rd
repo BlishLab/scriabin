@@ -2,12 +2,13 @@
 % Please edit documentation in R/interaction_graph.R
 \name{BuildPriorInteraction}
 \alias{BuildPriorInteraction}
-\title{Title}
+\title{Build unweighted summarized interaction graph}
 \usage{
 BuildPriorInteraction(
   object,
   assay = "SCT",
   slot = "data",
+  species = "human",
   database = "OmniPath",
   ligands = NULL,
   recepts = NULL,
@@ -18,11 +19,36 @@ BuildPriorInteraction(
 )
 }
 \arguments{
-\item{graph_name}{}
+\item{object}{A Seurat object}
+
+\item{assay}{Assay in Seurat object from which to pull expression values}
+
+\item{slot}{Slot within assay from which to pull expression values}
+
+\item{species}{Name of species for which to pull ligand-receptor interactions. One of "human", "mouse", or "rat"}
+
+\item{database}{Name of ligand-receptor database to use. Default: "OmniPath"
+When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+When species is "mouse" or "rat", only "OmniPath" is supported.
+To pass a custom ligand-receptor database to this function, set database = "custom"}
+
+\item{ligands}{Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+When ligands is supplied, recepts must also be supplied and equidimensional.}
+
+\item{recepts}{Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+When recepts is supplied, ligands must also be supplied and equidimensional.}
+
+\item{specific}{logical. When TRUE, consider only the genes in each cell's predefined gene signature (see crGeneSig) as expressed. Default FALSE}
+
+\item{ranked_genes}{Cell-resolved gene signatures, used only when specific = T}
+
+\item{correct.depth}{Correct summarized interaction graph for sequencing depth by linear regression. The sequencing depth of a cell-cell pair is the sum of UMI counts for each cell}
+
+\item{graph_name}{Name of summarized interaction graph to place into output. Default "prior_interaction"}
 }
 \value{
-
+Returns a Seurat object with an unweighted summarized interaction graph in the Graphs slot
 }
 \description{
-Title
+Build unweighted summarized interaction graph
 }

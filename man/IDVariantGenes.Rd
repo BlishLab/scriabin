@@ -22,7 +22,8 @@ IDVariantGenes(
 
 \item{n.gene}{Number of variable genes to return}
 
-\item{group.by}{Name of meta.data column corresponding to how dataset should be split}
+\item{group.by}{Name of meta.data column corresponding to how dataset should be split.
+This corresponds to the axis of biologically interesting variation.}
 
 \item{filter_quality}{Remove quality-associated genes like mitochondrial, ribosomal, etc.}
 }

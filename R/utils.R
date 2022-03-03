@@ -1,5 +1,89 @@
 
-#' Title
+
+
+#' Load ligand-receptor database
+#'
+#' @param species character. Name of species from which to load ligand-receptor databases. One of: "human", "mouse", "rat". Default: "human"
+#' @param database Name of ligand-receptor database to use. Default: "OmniPath"
+#' When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+#' When species is "mouse" or "rat", only "OmniPath" is supported.
+#' To pass a custom ligand-receptor database to this function, set database = "custom"
+#' @param ligands Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+#' When ligands is supplied, recepts must also be supplied and equidimensional.
+#' @param recepts Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+#' When recepts is supplied, ligands must also be supplied and equidimensional.
+#'
+#' @return Returns a dataframe containing gene symbols for ligand and receptor pairs. Column "pair" contains underscore-separated ligand-receptor pairs. Ligand and receptor gene names are stored in "source_genesymbol" and "target_genesymbol", respectively.
+#' @import dplyr
+#' @references Turei, et al. Molecular Systems Biology (2021); Raredon, et al. bioRxiv (2021)
+#' @export
+#'
+#' @examples
+LoadLR <- function(species = "human", database = "OmniPath", ligands = NULL, recepts = NULL) {
+  if(database=="custom") {
+    message("Using custom database")
+    ligands <- ligands
+    recepts <- recepts
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
+  }
+  else {
+    if(species %notin% c("human","mouse","rat")) {
+      stop("Only human, mouse, and rat supported as species")
+    }
+    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))[[species]]
+    if(database %notin% names(all)) {
+      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB\nFor rat or mouse, only OmniPath is supported")
+    }
+    message(paste("Using database",database))
+    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+  }
+  return(lit.put)
+}
+
+#' Identify potential ligands for ligand activity prediction
+#'
+#' @param seu A Seurat object
+#' @param assay Assay in Seurat object from which to pull expression values
+#' @param slot Slot within assay from which to pull expression values
+#' @param min.pct Minimum percentage of cells in which a gene must be detected in order to be considered an "expressed" gene. Default 0.025 (ie. 2.5%)
+#' @param species character. Name of species from which to load ligand-receptor databases. One of: "human", "mouse", "rat". Default: "human"
+#' @param database Name of ligand-receptor database to use. Default: "OmniPath"
+#' When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+#' When species is "mouse" or "rat", only "OmniPath" is supported.
+#' To pass a custom ligand-receptor database to this function, set database = "custom"
+#' @param ligands Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+#' When ligands is supplied, recepts must also be supplied and equidimensional.
+#' @param recepts Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+#' When recepts is supplied, ligands must also be supplied and equidimensional.
+#'
+#' @return Returns a list of length 2: 1) a character vector of potential ligands, 2) a character vector of background expressed genes
+#' @export dplyr
+#'
+#' @examples
+IDPotentialLigands <- function(seu, assay = "SCT", slot = "data", min.pct = 0.025,
+                               species = "human", database = "OmniPath",
+                               ligands = NULL, recepts = NULL) {
+  if(!exists("ligand_target_matrix")) {
+    stop("Error: Please load NicheNet database into environment via scriabin::load_nichenet_database()")
+  }
+  lr_network <- LoadLR(database = database, species = species, ligands = ligands, recepts = recepts)
+  exprs <- GetAssayData(seu, assay = assay, slot = slot)
+  expressed_genes <- rownames(exprs)[(Matrix::rowSums(exprs !=0)/ncol(exprs))>min.pct]
+  background_expressed_genes <- expressed_genes %>% .[. %in% rownames(ligand_target_matrix)]
+  ligands = lr_network %>% pull(source_genesymbol) %>% unique()
+  receptors = lr_network %>% pull(target_genesymbol) %>% unique()
+  expressed_ligands = intersect(ligands,expressed_genes)
+  expressed_receptors = intersect(receptors,expressed_genes)
+  potential_ligands = lr_network %>% dplyr::filter(source_genesymbol %in% expressed_ligands & target_genesymbol %in% expressed_receptors) %>% pull(source_genesymbol) %>% unique()
+  return(list(potential_ligands,background_expressed_genes))
+}
+
+
+
+
+#' Convenient negation
 #'
 #' @return
 #' @export
@@ -7,7 +91,7 @@
 #' @examples
 `%notin%` <- Negate(`%in%`)
 
-#' Title
+#' Resampling
 #'
 #' @return
 #' @export
@@ -15,7 +99,8 @@
 #' @examples
 resample <- function(x, ...) x[sample.int(length(x), ...)]
 
-#' Title
+
+#' Load NicheNet Database
 #'
 #' @return
 #' @export
@@ -36,10 +121,10 @@ load_nichenet_database <- function() {
 
 #' Mapvalues (ripped from plyr)
 #'
-#' @param x
-#' @param from
-#' @param to
-#' @param warn_missing
+#' @param x the factor or vector to modify
+#' @param from a vector of the items to replace
+#' @param to a vector of replacement values
+#' @param warn_missing print a message if any of the old values are not present in x
 #'
 #' @return
 #' @export

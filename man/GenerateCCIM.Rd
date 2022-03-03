@@ -2,25 +2,62 @@
 % Please edit documentation in R/interaction_graph.R
 \name{GenerateCCIM}
 \alias{GenerateCCIM}
-\title{Title}
+\title{Calculate cell-cell interaction matrix}
 \usage{
 GenerateCCIM(
   object,
   assay = "SCT",
   slot = "data",
+  species = "human",
   database = "OmniPath",
   ligands = NULL,
   recepts = NULL,
   senders = NULL,
-  receivers = NULL
+  receivers = NULL,
+  weighted = F,
+  nichenet_results = NULL,
+  pearson.cutoff = 0.075,
+  scale.factors = c(1.5, 3)
 )
 }
 \arguments{
-\item{receivers}{}
+\item{object}{A seurat object}
+
+\item{assay}{Assay in Seurat object from which to pull expression values}
+
+\item{slot}{Slot within assay from which to pull expression values}
+
+\item{species}{character. Name of species from which to load ligand-receptor databases. One of: "human", "mouse", "rat". Default: "human"}
+
+\item{database}{Name of ligand-receptor database to use. Default: "OmniPath"
+When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+When species is "mouse" or "rat", only "OmniPath" is supported.
+To pass a custom ligand-receptor database to this function, set database = "custom"}
+
+\item{ligands}{Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+When ligands is supplied, recepts must also be supplied and equidimensional.}
+
+\item{recepts}{Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+When recepts is supplied, ligands must also be supplied and equidimensional.}
+
+\item{senders}{Character vector of cell names to be used as sender cells for interaction graph generation. By default, all cells in object are used as senders.}
+
+\item{receivers}{Character vector of cell naems to be used as receiver cells for interaction graph generation. By default, all cells in object are used as receivers.}
+
+\item{weighted}{logical. Weight the cell-cell interaction graph by ligands predicted to be active by NicheNet? Default: FALSE}
+
+\item{nichenet_results}{List or matrix. Predicted ligand activities using Scriabin's implementation of NicheNet in RankActiveLigands}
+
+\item{pearson.cutoff}{numeric. Threshold for determining which ligand activities are "active". Ligands below this threshold will be considered inactive and not used for weighting. Default: 0.075}
+
+\item{scale.factors}{numeric. Determines the magnitude of ligand and receptor expression values weighting by their predicted activities. Given scale factors of c(x,y), ligand-receptor pairs where the ligand's pearson = pearson.cutoff will be weighted by a factor of x, and the ligand with the highest pearson will be weighted by a factor of y. Default: c(1.5,3).}
 }
 \value{
-
+Returns a Seurat object with assay "CCIM" where columns are cell-cell pairs and rows are ligand-receptor pairs. "Expression" values are the geometric mean expression value between each pair of sender and receiver cells. By default, names ligand-receptor pairs and cell-cell pairs are separated by "="
 }
 \description{
-Title
+Calculate cell-cell interaction matrix
+}
+\references{
+Browaeys, et al. Nature Methods (2019)
 }

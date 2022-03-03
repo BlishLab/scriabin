@@ -1,24 +1,39 @@
 
-#' Title
+#' Calculate cell-cell interaction matrix
 #'
-#' @param object
-#' @param assay
-#' @param slot
-#' @param database
-#' @param ligands
-#' @param recepts
-#' @param senders
-#' @param receivers
+#' @param object A seurat object
+#' @param assay Assay in Seurat object from which to pull expression values
+#' @param slot Slot within assay from which to pull expression values
+#' @param species character. Name of species from which to load ligand-receptor databases. One of: "human", "mouse", "rat". Default: "human"
+#' @param database Name of ligand-receptor database to use. Default: "OmniPath"
+#' When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+#' When species is "mouse" or "rat", only "OmniPath" is supported.
+#' To pass a custom ligand-receptor database to this function, set database = "custom"
+#' @param ligands Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+#' When ligands is supplied, recepts must also be supplied and equidimensional.
+#' @param recepts Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+#' When recepts is supplied, ligands must also be supplied and equidimensional.
+#' @param senders Character vector of cell names to be used as sender cells for interaction graph generation. By default, all cells in object are used as senders.
+#' @param receivers Character vector of cell naems to be used as receiver cells for interaction graph generation. By default, all cells in object are used as receivers.
+#' @param weighted logical. Weight the cell-cell interaction graph by ligands predicted to be active by NicheNet? Default: FALSE
+#' @param nichenet_results List or matrix. Predicted ligand activities using Scriabin's implementation of NicheNet in RankActiveLigands
+#' @param pearson.cutoff numeric. Threshold for determining which ligand activities are "active". Ligands below this threshold will be considered inactive and not used for weighting. Default: 0.075
+#' @param scale.factors numeric. Determines the magnitude of ligand and receptor expression values weighting by their predicted activities. Given scale factors of c(x,y), ligand-receptor pairs where the ligand's pearson = pearson.cutoff will be weighted by a factor of x, and the ligand with the highest pearson will be weighted by a factor of y. Default: c(1.5,3).
 #'
-#' @return
-#' @import dplyr pbapply
+#' @return Returns a Seurat object with assay "CCIM" where columns are cell-cell pairs and rows are ligand-receptor pairs. "Expression" values are the geometric mean expression value between each pair of sender and receiver cells. By default, names ligand-receptor pairs and cell-cell pairs are separated by "="
+#' @import dplyr pbapply Matrix Seurat tibble
+#' @references Browaeys, et al. Nature Methods (2019)
 #' @export
 #'
 #' @examples
 GenerateCCIM <- function(object, assay = "SCT", slot = "data",
-                         database = "OmniPath", ligands = NULL,
-                         recepts = NULL, senders = NULL, receivers = NULL) {
+                         species = "human", database = "OmniPath",
+                         ligands = NULL, recepts = NULL,
+                         senders = NULL, receivers = NULL,
+                         weighted = F, nichenet_results = NULL,
+                         pearson.cutoff = 0.075, scale.factors = c(1.5,3)) {
   #code to connect with l-r databases adapted from Connectome (Raredon, et al.)
+  message("This is the square-root CCIM function")
   if(database=="custom") {
     message("Using custom database")
     ligands <- ligands
@@ -26,14 +41,15 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
     lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
   }
   else {
-    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
-    if(database %notin% names(all)) {
-      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
-    }
-    message(paste("Using database",database))
-    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
-    lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    # if(database %notin% names(all)) {
+    #   stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    # }
+    # message(paste("Using database",database))
+    # pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    # lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    # lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    lit.put <- LoadLR(species = species, database = database)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }
@@ -81,29 +97,97 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
                                      ]
   }
 
-  a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
-  a[is.na(a)] <- 0
-  b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
-  b[is.na(b)] <- 0
+  if(weighted) {
+    if(is.null(nichenet_results)) {
+      stop("NicheNet results must be included to perform CCIM weighting")
+    }
+    message("Weighting interaction graph")
+    if(class(nichenet_results) %notin% c("list","matrix")) {
+      stop("NicheNet results must be supplied as one of list or matrix")
+    }
+    if(class(nichenet_results)=="list") {
+      nichenet_results <- nichenet_results[names(nichenet_results) %in% colnames(object)]
+      nichenet_results <- bind_rows(lapply(nichenet_results, FUN = function(x) {
+        results <- x[[1]] %>% pull(pearson)
+        names(results) <- x[[1]] %>% pull(test_ligand)
+        return(results)
+      }), .id = "cell")
+      nnm <- reshape2::melt(nichenet_results) %>% dplyr::filter(value>pearson.cutoff)
+      colnames(nnm) <- c("cell","ligand","pearson")
+    }
+    if(class(nichenet_results)=="matrix") {
+      nichenet_results <- nichenet_results[,colnames(object)]
+      nnm <- reshape2::melt(nichenet_results) %>% dplyr::filter(value>pearson.cutoff)
+      colnames(nnm) <- c("ligand","cell","pearson")
+    }
+    if(nrow(nnm)==0) {
+      warning("No active ligands to weight. Please check specified pearson cutoff")
+      message("Using unweighted ligand-receptor matrices")
+      a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+      a[is.na(a)] <- 0
+      b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
+      b[is.na(b)] <- 0
+    }
+    else {
+      message(paste("Found active ligands to weight. Weighting with pearson cutoff ",pearson.cutoff))
+      nnm$weight_factor <- scales::rescale(nnm$pearson, scale.factors)
+      int.to.merge <- lit.put[,c(1,2,3)]
+      colnames(int.to.merge) <- c("pair","ligand","recepts")
+      nnm <- merge(nnm,int.to.merge,by = "ligand", all.x=T)
+      nnm <- nnm[!is.na(nnm$recepts),]
+      test2 <- reshape2::dcast(nnm, recepts~cell, value.var = "weight_factor", fun.aggregate = sum)
+      test3 <- merge(cell.exprs.rec[,1:2],test2,all.x = T) %>% arrange(id)
+
+      cell.exprs.rec.m <- cell.exprs.rec[,3:ncol(cell.exprs.rec)]
+      weight.m <- as.matrix(test3[,3:ncol(test3)])
+      weight.m[weight.m==0] <- 1
+      weight.m[is.na(weight.m)] <- 1
+      cells.bind <- colnames(cell.exprs.rec.m)[colnames(cell.exprs.rec.m) %notin% colnames(weight.m)]
+      tobind <- matrix(1,nrow = nrow(weight.m),ncol = length(cells.bind))
+      colnames(tobind) <- cells.bind
+      weight.m <- cbind(weight.m,tobind)
+      weight.m <- weight.m[,match(colnames(cell.exprs.rec.m),colnames(weight.m))]
+
+      final <- weight.m * as.matrix(cell.exprs.rec.m)
+      # weighted.rec <- cbind(cell.exprs.rec.m[,1:3],final)
+
+      a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+      a[is.na(a)] <- 0
+      b <- as.matrix(final)
+      b[is.na(b)] <- 0
+    }
+  }
+
+
+  else {
+    message("Using unweighted ligand-receptor matrices")
+    a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+    a[is.na(a)] <- 0
+    b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
+    b[is.na(b)] <- 0
+  }
 
   message(paste("Calculating CCIM between",length(senders),"senders and",length(receivers),"receivers"))
   message(paste("\nGenerating Interaction Matrix..."))
   m <- sqrt(as.sparse((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
+
   colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
   cna <- rep(senders,length(receivers))
   cnb <- rep(receivers,each=length(senders))
+
   rownames(m) <- paste(cna,cnb,sep = "=")
   m <- m[,Matrix::colSums(m)>0]
   return(CreateSeuratObject(counts = Matrix::t(m), assay = "CCIM"))
 }
 
-#' Title
+
+#' Map metadata from Seurat object to CCIM object
 #'
-#' @param ccim_seu
-#' @param seu
-#' @param columns_map
+#' @param ccim_seu Seurat object generated by GenerateCCIM that contains a cell-cell interaction matrix
+#' @param seu Parent Seurat object from which the cell-cell interaction matrix was generated
+#' @param columns_map Character vector of names of metadata columns to map from parent Seurat object
 #'
-#' @return
+#' @return Returns a Seurat object with metadata from each sender and receiver cell mapped from the parent Seurat object. Metadata about the sender cell in each cell-cell pair is prepended with "sender_" and metadata about the receiver cell prepended with "receiver_"
 #' @import stringr
 #' @export
 #'
@@ -132,26 +216,33 @@ MapMetaData <- function(ccim_seu, seu, columns_map = NULL) {
 }
 
 
-#' Title
+#' Build unweighted summarized interaction graph
 #'
-#' @param object
-#' @param assay
-#' @param slot
-#' @param database
-#' @param ligands
-#' @param recepts
-#' @param specific
-#' @param ranked_genes
-#' @param correct.depth
-#' @param graph_name
+#' @param object A Seurat object
+#' @param assay Assay in Seurat object from which to pull expression values
+#' @param slot Slot within assay from which to pull expression values
+#' @param species Name of species for which to pull ligand-receptor interactions. One of "human", "mouse", or "rat"
+#' @param database Name of ligand-receptor database to use. Default: "OmniPath"
+#' When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+#' When species is "mouse" or "rat", only "OmniPath" is supported.
+#' To pass a custom ligand-receptor database to this function, set database = "custom"
+#' @param ligands Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+#' When ligands is supplied, recepts must also be supplied and equidimensional.
+#' @param recepts Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+#' When recepts is supplied, ligands must also be supplied and equidimensional.
+#' @param specific logical. When TRUE, consider only the genes in each cell's predefined gene signature (see crGeneSig) as expressed. Default FALSE
+#' @param ranked_genes Cell-resolved gene signatures, used only when specific = T
+#' @param correct.depth Correct summarized interaction graph for sequencing depth by linear regression. The sequencing depth of a cell-cell pair is the sum of UMI counts for each cell
+#' @param graph_name Name of summarized interaction graph to place into output. Default "prior_interaction"
 #'
-#' @return
-#' @import dplyr
+#' @return Returns a Seurat object with an unweighted summarized interaction graph in the Graphs slot
+#' @import dplyr Seurat tibble stats
 #' @export
 #'
 #' @examples
 BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
-                                   database = "OmniPath", ligands = NULL, recepts = NULL,
+                                   species = "human", database = "OmniPath",
+                                   ligands = NULL, recepts = NULL,
                                    specific = F, ranked_genes = NULL,
                                    correct.depth = T, graph_name = "prior_interaction") {
   if(database=="custom") {
@@ -161,14 +252,15 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
     lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
   }
   else {
-    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
-    if(database %notin% names(all)) {
-      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
-    }
-    message(paste("Using database",database))
-    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
-    lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    # if(database %notin% names(all)) {
+    #   stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    # }
+    # message(paste("Using database",database))
+    # pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    # lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    # lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    lit.put <- LoadLR(species = species, database = database)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }
@@ -245,30 +337,38 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
 
 
 
-
-
-#' Title
+#' Build summarized interaction graph weighted by predicted ligand activities
 #'
-#' @param object
-#' @param nichenet_results
-#' @param assay
-#' @param slot
-#' @param pearson.cutoff
-#' @param scale.factors
-#' @param database
-#' @param ligands
-#' @param recepts
-#' @param correct.depth
-#' @param graph_name
+#' @param object A Seurat object
+#' @param nichenet_results List or matrix. Predicted ligand activities using Scriabin's implementation of NicheNet in RankActiveLigands
+#' @param pearson.cutoff numeric. Threshold for determining which ligand activities are "active". Ligands below this threshold will be considered inactive and not used for weighting. Default: 0.075
+#' @param scale.factors numeric. Determines the magnitude of ligand and receptor expression values weighting by their predicted activities. Given scale factors of c(x,y), ligand-receptor pairs where the ligand's pearson = pearson.cutoff will be weighted by a factor of x, and the ligand with the highest pearson will be weighted by a factor of y. Default: c(1.5,3).
+#' @param assay Assay in Seurat object from which to pull expression values
+#' @param slot Slot within assay from which to pull expression values
+#' @param species Name of species for which to pull ligand-receptor interactions. One of "human", "mouse", or "rat"
+#' @param database Name of ligand-receptor database to use. Default: "OmniPath"
+#' When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+#' When species is "mouse" or "rat", only "OmniPath" is supported.
+#' To pass a custom ligand-receptor database to this function, set database = "custom"
+#' @param ligands Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+#' When ligands is supplied, recepts must also be supplied and equidimensional.
+#' @param recepts Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+#' When recepts is supplied, ligands must also be supplied and equidimensional.
+#' @param ranked_genes Cell-resolved gene signatures, used only when specific = T
+#' @param correct.depth Correct summarized interaction graph for sequencing depth by linear regression. The sequencing depth of a cell-cell pair is the sum of UMI counts for each cell
+#' @param graph_name Name of summarized interaction graph to place into output. Default "weighted_interaction"
 #'
-#' @return
-#' @import dplyr tidyft tibble
+#' @return Returns a Seurat object with a weighted summarized interaction graph in the Graphs slot
+#' @import dplyr tidyft Seurat tibble stats
+#' @references Browaeys, et al. Nature Methods (2019)
+
 #' @export
 #'
 #' @examples
-BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assay = "SCT", slot = "data",
-                                      pearson.cutoff = 0.1, scale.factors = c(1.5,3),
-                                      database = "OmniPath", ligands = NULL, recepts = NULL,
+BuildWeightedInteraction <- function (object, nichenet_results, assay = "SCT", slot = "data",
+                                      pearson.cutoff = 0.075, scale.factors = c(1.5,3),
+                                      species = "human", database = "OmniPath",
+                                      ligands = NULL, recepts = NULL,
                                       correct.depth = T, graph_name = "weighted_interaction") {
   if(database=="custom") {
     message("Using custom database")
@@ -277,14 +377,15 @@ BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assa
     lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
   }
   else {
-    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
-    if(database %notin% names(all)) {
-      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
-    }
-    message(paste("Using database",database))
-    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
-    lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    # if(database %notin% names(all)) {
+    #   stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
+    # }
+    # message(paste("Using database",database))
+    # pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    # lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
+    # lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
+    lit.put <- LoadLR(species = species, database = database)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }
@@ -307,42 +408,65 @@ BuildWeightedInteraction <- function (object, nichenet_results = late1.nnr, assa
   cell.exprs.lig <- cell.exprs.lig[order(cell.exprs.lig$id),
                                    ]
   message("Weighting interaction matrix")
-  nichenet_results <- nichenet_results[names(nichenet_results) %in% colnames(object)]
-  nichenet_results <- lapply(nichenet_results, FUN = function(x) {
-    results <- x[[1]] %>% pull(pearson)
-    names(results) <- x[[1]] %>% pull(test_ligand)
-    return(results)
-  })
-  test <- bind_rows(nichenet_results)
-  rownames(test) <- names(nichenet_results)
-  test <- reshape2::melt(test %>% rownames_to_column(var = "cell")) %>% dplyr::filter(value>pearson.cutoff)
-  colnames(test) <- c("cell","ligand","pearson")
-  test$weight_factor <- scales::rescale(test$pearson, scale.factors)
-  int.to.merge <- lit.put[,c(1,2,3)]
-  colnames(int.to.merge) <- c("pair","ligand","recepts")
-  test <- merge(test,int.to.merge,by = "ligand", all.x=T)
-  test <- test[!is.na(test$recepts),]
-  test2 <- reshape2::dcast(test, recepts~cell, value.var = "weight_factor", fun.aggregate = sum)
-  test3 <- merge(cell.exprs.rec[,1:3],test2,all.x = T) %>% arrange(id)
 
-  cell.exprs.rec.m <- cell.exprs.rec[,4:ncol(cell.exprs.rec)]
-  weight.m <- as.matrix(test3[,4:ncol(test3)])
-  weight.m[weight.m==0] <- 1
-  weight.m[is.na(weight.m)] <- 1
-  cells.bind <- colnames(cell.exprs.rec.m)[colnames(cell.exprs.rec.m) %notin% colnames(weight.m)]
-  tobind <- matrix(1,nrow = nrow(weight.m),ncol = length(cells.bind))
-  colnames(tobind) <- cells.bind
-  weight.m <- cbind(weight.m,tobind)
-  weight.m <- weight.m[,match(colnames(cell.exprs.rec.m),colnames(weight.m))]
+  if(is.null(nichenet_results)) {
+    stop("NicheNet results must be included to perform SIG weighting")
+  }
+  message("Weighting interaction graph")
+  if(class(nichenet_results) %notin% c("list","matrix")) {
+    stop("NicheNet results must be supplied as one of list or matrix")
+  }
+  if(class(nichenet_results)=="list") {
+    nichenet_results <- nichenet_results[names(nichenet_results) %in% colnames(object)]
+    nichenet_results <- bind_rows(lapply(nichenet_results, FUN = function(x) {
+      results <- x[[1]] %>% pull(pearson)
+      names(results) <- x[[1]] %>% pull(test_ligand)
+      return(results)
+    }), .id = "cell")
+    nnm <- reshape2::melt(nichenet_results) %>% dplyr::filter(value>pearson.cutoff)
+    colnames(nnm) <- c("cell","ligand","pearson")
+  }
+  if(class(nichenet_results)=="matrix") {
+    nichenet_results <- nichenet_results[,colnames(object)]
+    nnm <- reshape2::melt(nichenet_results) %>% dplyr::filter(value>pearson.cutoff)
+    colnames(nnm) <- c("ligand","cell","pearson")
+  }
+  if(nrow(nnm)==0) {
+    warning("No active ligands to weight. Please check specified pearson cutoff")
+    message("Using unweighted ligand-receptor matrices")
+    a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+    a[is.na(a)] <- 0
+    b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
+    b[is.na(b)] <- 0
+  }
+  else {
+    message(paste("Found active ligands to weight. Weighting with pearson cutoff ",pearson.cutoff))
+    nnm$weight_factor <- scales::rescale(nnm$pearson, scale.factors)
+    int.to.merge <- lit.put[,c(1,2,3)]
+    colnames(int.to.merge) <- c("pair","ligand","recepts")
+    nnm <- merge(nnm,int.to.merge,by = "ligand", all.x=T)
+    nnm <- nnm[!is.na(nnm$recepts),]
+    test2 <- reshape2::dcast(nnm, recepts~cell, value.var = "weight_factor", fun.aggregate = sum)
+    test3 <- merge(cell.exprs.rec[,1:2],test2,all.x = T) %>% arrange(id)
 
-  final <- weight.m * as.matrix(cell.exprs.rec.m)
-  weighted.rec <- cbind(cell.exprs.rec.m[,1:3],final)
+    cell.exprs.rec.m <- cell.exprs.rec[,3:ncol(cell.exprs.rec)]
+    weight.m <- as.matrix(test3[,3:ncol(test3)])
+    weight.m[weight.m==0] <- 1
+    weight.m[is.na(weight.m)] <- 1
+    cells.bind <- colnames(cell.exprs.rec.m)[colnames(cell.exprs.rec.m) %notin% colnames(weight.m)]
+    tobind <- matrix(1,nrow = nrow(weight.m),ncol = length(cells.bind))
+    colnames(tobind) <- cells.bind
+    weight.m <- cbind(weight.m,tobind)
+    weight.m <- weight.m[,match(colnames(cell.exprs.rec.m),colnames(weight.m))]
 
-  message(paste("\nGenerating Interaction Matrix..."))
-  a <- as.matrix(cell.exprs.lig[,4:ncol(cell.exprs.lig)])
-  a[is.na(a)] <- 0
-  b <- as.matrix(weighted.rec[,4:ncol(weighted.rec)])
-  b[is.na(b)] <- 0
+    final <- weight.m * as.matrix(cell.exprs.rec.m)
+    # weighted.rec <- cbind(cell.exprs.rec.m[,1:3],final)
+
+    a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+    a[is.na(a)] <- 0
+    b <- as.matrix(final)
+    b[is.na(b)] <- 0
+  }
   m <- crossprod(sqrt(a),sqrt(b))
 
   #

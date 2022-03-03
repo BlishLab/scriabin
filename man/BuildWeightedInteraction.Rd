@@ -2,15 +2,16 @@
 % Please edit documentation in R/interaction_graph.R
 \name{BuildWeightedInteraction}
 \alias{BuildWeightedInteraction}
-\title{Title}
+\title{Build summarized interaction graph weighted by predicted ligand activities}
 \usage{
 BuildWeightedInteraction(
   object,
-  nichenet_results = late1.nnr,
+  nichenet_results,
   assay = "SCT",
   slot = "data",
-  pearson.cutoff = 0.1,
+  pearson.cutoff = 0.075,
   scale.factors = c(1.5, 3),
+  species = "human",
   database = "OmniPath",
   ligands = NULL,
   recepts = NULL,
@@ -19,11 +20,43 @@ BuildWeightedInteraction(
 )
 }
 \arguments{
-\item{graph_name}{}
+\item{object}{A Seurat object}
+
+\item{nichenet_results}{List or matrix. Predicted ligand activities using Scriabin's implementation of NicheNet in RankActiveLigands}
+
+\item{assay}{Assay in Seurat object from which to pull expression values}
+
+\item{slot}{Slot within assay from which to pull expression values}
+
+\item{pearson.cutoff}{numeric. Threshold for determining which ligand activities are "active". Ligands below this threshold will be considered inactive and not used for weighting. Default: 0.075}
+
+\item{scale.factors}{numeric. Determines the magnitude of ligand and receptor expression values weighting by their predicted activities. Given scale factors of c(x,y), ligand-receptor pairs where the ligand's pearson = pearson.cutoff will be weighted by a factor of x, and the ligand with the highest pearson will be weighted by a factor of y. Default: c(1.5,3).}
+
+\item{species}{Name of species for which to pull ligand-receptor interactions. One of "human", "mouse", or "rat"}
+
+\item{database}{Name of ligand-receptor database to use. Default: "OmniPath"
+When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+When species is "mouse" or "rat", only "OmniPath" is supported.
+To pass a custom ligand-receptor database to this function, set database = "custom"}
+
+\item{ligands}{Character vector of custom ligands to use for interaction graph generation. Ignored unless database = "custom"
+When ligands is supplied, recepts must also be supplied and equidimensional.}
+
+\item{recepts}{Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
+When recepts is supplied, ligands must also be supplied and equidimensional.}
+
+\item{correct.depth}{Correct summarized interaction graph for sequencing depth by linear regression. The sequencing depth of a cell-cell pair is the sum of UMI counts for each cell}
+
+\item{graph_name}{Name of summarized interaction graph to place into output. Default "weighted_interaction"}
+
+\item{ranked_genes}{Cell-resolved gene signatures, used only when specific = T}
 }
 \value{
-
+Returns a Seurat object with a weighted summarized interaction graph in the Graphs slot
 }
 \description{
-Title
+Build summarized interaction graph weighted by predicted ligand activities
+}
+\references{
+Browaeys, et al. Nature Methods (2019)
 }
