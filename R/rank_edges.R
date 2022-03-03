@@ -11,6 +11,7 @@
 #' @param filter_quality Remove quality-associated genes like mitochondrial, ribosomal, etc.
 #'
 #' @return
+#' @import genefilter Seurat dplyr
 #' @export
 #'
 #' @examples
@@ -56,6 +57,7 @@ IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
 #'
 #' @return Returns a matrix where columns are cells, rows are potential ligands, and values are pearson coefficients corresponding to each ligand's predicted activity in that cell.
 #' @references Browaeys, et al. Nat Methods (2019); Cortal, et al. Nat Biotech (2021)
+#' @import nichenetr dplyr scales
 #' @export
 #'
 #' @examples
@@ -65,16 +67,21 @@ RankActiveLigands <- function(seu, variant_genes, dq = 0.5,
   if(species %notin% c("human","mouse","rat") & database != "custom") {
     stop("Only human, mouse, and rat are currently supported as species\nTo use a custom ligand-receptor pair list please set database = 'custom'")
   }
-  if(species != "human") {
-    warning("Warning: NicheNet's ligand-target matrix is built only on human observations. Use caution when extrapolating the data in this database to non-human datasets")
-  }
 
   seu <- RunMCA(seu, features = variant_genes)
   ds2 <- do.call(rbind,GetCellGeneRanking(seu, reduction = "mca"))
   ds2s <- scales::rescale(ds2, from = c(min(ds2),quantile(ds2,dq)), to = c(0,1))
   ds2s[ds2s>1] <- 1
   dsp <- 1-ds2s
-  potential_ligands <- IDPotentialLigands_current(seu)
+  if(species != "human") {
+    warning("Warning: NicheNet's ligand-target matrix is built only on human observations. Use caution when extrapolating the data in this database to non-human datasets")
+    colnames(dsp) <- nichenetr::convert_mouse_to_human_symbols(colnames(dsp))
+    potential_ligands <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts)
+    potential_ligands <- nichenetr::convert_mouse_to_human_symbols(potential_ligands)
+  }
+  else {
+    potential_ligands <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts)
+  }
   shared_targets <- intersect(rownames(ligand_target_matrix),colnames(dsp))
   shared_targets <- shared_targets[shared_targets %in% potential_ligands[[2]]]
   dsp <- t(dsp)[shared_targets,]
@@ -83,6 +90,9 @@ RankActiveLigands <- function(seu, variant_genes, dq = 0.5,
   ligands_map <- potential_ligands[[1]][potential_ligands[[1]] %in% ligands_for_optim]
   preds <- cor(dsp,ltm[,colnames(ltm) %in% ligands_map])
   preds[is.na(preds)] <- 0
+  if(species != "human") {
+    colnames(preds) <- nichenetr::convert_human_to_mouse_symbols(rownames(dsp))
+  }
   return(t(preds))
 }
 
