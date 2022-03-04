@@ -2,16 +2,20 @@
 % Please edit documentation in R/bin_diff.R
 \name{PerturbedBinSummary}
 \alias{PerturbedBinSummary}
-\title{Title}
+\title{Summary plots of perturbed bins}
 \usage{
 PerturbedBinSummary(seu, bin_pvals, cell.type.calls = "celltype.l2")
 }
 \arguments{
-\item{cell.type.calls}{}
+\item{seu}{A binned Seurat object with bin identities in the "bin" column of meta.data}
+
+\item{bin_pvals}{Bin perturbation signifance data, ie. the output of \code{PerturbedBins}}
+
+\item{cell.type.calls}{Meta.data slot column corresponding to cell type annotations for summarization}
 }
 \value{
-
+Returns plots of bin-bin perturbation p-values, cross sample communication standard deviation, and summary by cell type or other meta.data of interest
 }
 \description{
-Title
+Summary plots of perturbed bins
 }

@@ -27,28 +27,26 @@
 #'
 #' @examples
 InteractionPrograms <- function(object, assay = "SCT", slot = "data",
-                               species = "human", database = "OmniPath",
-                               ligands = NULL, recepts = NULL,
-                               iterate.threshold = 500, n.iterate = NULL,
-                               specific = F, ranked_genes = NULL,
-                               return.mat = T, softPower = 1,
-                               min.size = 5, plot.mods = F,
-                               tree.cut.quantile = 0.4) {
+                                species = "human", database = "OmniPath",
+                                ligands = NULL, recepts = NULL,
+                                iterate.threshold = 500, n.iterate = NULL,
+                                specific = F, ranked_genes = NULL,
+                                return.mat = T, softPower = 1,
+                                min.size = 5, plot.mods = F,
+                                tree.cut.quantile = 0.4) {
   if(database=="custom") {
+    if(is.null(ligands) | is.null(recepts)) {
+      stop("To use custom database, please supply equidimensional character vectors of ligands and recepts")
+    }
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
-    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
+  }
+  if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
+    stop("To use custom ligand or receptor lists, set database = 'custom'")
   }
   else {
-    # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
-    # if(database %notin% names(all)) {
-    #   stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
-    # }
-    # message(paste("Using database",database))
-    # pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    # lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
-    # lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
     lit.put <- scriabin::LoadLR(species = species, database = database)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
@@ -77,28 +75,13 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     cell.exprs <- as.data.frame(cell.exprs) %>% rownames_to_column(var = "gene")
   }
   else {
-    cell.exprs <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,]) %>% rownames_to_column(var = "gene")
+    cell.exprs <- GetAssayData(object, assay = assay, slot = slot)[genes.use,]
   }
 
   ligands.df <- data.frame(ligands)
   ligands.df$id <- 1:nrow(ligands.df)
   recepts.df <- data.frame(recepts)
   recepts.df$id <- 1:nrow(recepts.df)
-  cell.exprs.rec <- merge(recepts.df, cell.exprs,
-                          by.x = "recepts", by.y = "gene", all.x = T)
-  cell.exprs.rec <- cell.exprs.rec[order(cell.exprs.rec$id),
-                                   ]
-  cell.exprs.lig <- merge(ligands.df, cell.exprs,
-                          by.x = "ligands", by.y = "gene", all.x = T)
-  cell.exprs.lig <- cell.exprs.lig[order(cell.exprs.lig$id),
-                                   ]
-  sources <- colnames(object)
-  targets <- colnames(object)
-
-  a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
-  a[is.na(a)] <- 0
-  b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
-  b[is.na(b)] <- 0
 
   if(ncol(object)>iterate.threshold) {
     message("\nIteratively generating interaction matrix")
@@ -108,13 +91,27 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     else {
       n.rep = n.iterate
     }
-    mat_list <- pblapply(seq_along(1:n.rep), function(z) {
-      x <- a[,sample(1:ncol(a),iterate.threshold)]
-      y <- b[,colnames(x)]
-      m <- sqrt(as.sparse((sapply(1:nrow(x), function(i) tcrossprod(x[i, ], y[i, ])))))
+    message(paste("Will perform",n.rep,"iterations to approximate TOM"))
+    mat_list <- lapply(seq_along(1:n.rep), function(z) {
+      cell.exprs.sub <- as.data.frame(cell.exprs[,sample(colnames(cell.exprs),iterate.threshold)]) %>% rownames_to_column(var = "gene")
+      cell.exprs.rec <- merge(recepts.df, cell.exprs.sub,
+                              by.x = "recepts", by.y = "gene", all.x = T)
+      cell.exprs.rec <- cell.exprs.rec[order(cell.exprs.rec$id),
+                                       ]
+      cell.exprs.lig <- merge(ligands.df, cell.exprs.sub,
+                              by.x = "ligands", by.y = "gene", all.x = T)
+      cell.exprs.lig <- cell.exprs.lig[order(cell.exprs.lig$id),
+                                       ]
+
+      a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+      a[is.na(a)] <- 0
+      b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
+      b[is.na(b)] <- 0
+
+      m <- sqrt(as.sparse((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
       colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
-      cna <- rep(colnames(x),ncol(x))
-      cnb <- rep(colnames(x),each=ncol(x))
+      cna <- rep(colnames(a),ncol(a))
+      cnb <- rep(colnames(a),each=ncol(a))
       rownames(m) <- paste(cna,cnb,sep = "=")
       m <- m[,Matrix::colSums(m)>0]
       m_cor <- 0.5+(0.5*corSparse(m))
@@ -165,9 +162,9 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   #create color list
   module_melt <- reshape2::melt(modules)
   colors <- scriabin::mapvalues(colnames(m_cor),
-                            from = module_melt$value,
-                            to = module_melt$L1,
-                            warn_missing = F)
+                                from = module_melt$value,
+                                to = module_melt$L1,
+                                warn_missing = F)
   colors[colors %notin% unique(module_melt$L1)] <- "grey"
 
   Alldegrees1=intramodularConnectivity(adj, colors)
