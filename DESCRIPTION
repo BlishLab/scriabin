@@ -18,6 +18,7 @@ Imports:
     magrittr,
     graphics,
     stats,
+    FSA,
     dplyr,
     tidyft,
     tibble,
