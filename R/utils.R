@@ -59,7 +59,7 @@ LoadLR <- function(species = "human", database = "OmniPath", ligands = NULL, rec
 #' When recepts is supplied, ligands must also be supplied and equidimensional.
 #'
 #' @return Returns a list of length 2: 1) a character vector of potential ligands, 2) a character vector of background expressed genes
-#' @import dplyr
+#' @import dplyr nichenetr
 #' @export
 #'
 #' @examples
@@ -69,8 +69,14 @@ IDPotentialLigands <- function(seu, assay = "SCT", slot = "data", min.pct = 0.02
   if(!exists("ligand_target_matrix")) {
     stop("Error: Please load NicheNet database into environment via scriabin::load_nichenet_database()")
   }
+  library(nichenetr)
   lr_network <- LoadLR(database = database, species = species, ligands = ligands, recepts = recepts)
   exprs <- GetAssayData(seu, assay = assay, slot = slot)
+  if(species != "human") {
+    rownames(exprs) <- nichenetr::convert_mouse_to_human_symbols(rownames(exprs))
+    lr_network <- lr_network %>% dplyr::mutate(source_genesymbol = nichenetr::convert_mouse_to_human_symbols(source_genesymbol)) %>%
+      dplyr::mutate(target_genesymbol = nichenetr::convert_mouse_to_human_symbols(target_genesymbol))
+  }
   expressed_genes <- rownames(exprs)[(Matrix::rowSums(exprs !=0)/ncol(exprs))>min.pct]
   background_expressed_genes <- expressed_genes %>% .[. %in% rownames(ligand_target_matrix)]
   ligands = lr_network %>% pull(source_genesymbol) %>% unique()
@@ -78,6 +84,9 @@ IDPotentialLigands <- function(seu, assay = "SCT", slot = "data", min.pct = 0.02
   expressed_ligands = intersect(ligands,expressed_genes)
   expressed_receptors = intersect(receptors,expressed_genes)
   potential_ligands = lr_network %>% dplyr::filter(source_genesymbol %in% expressed_ligands & target_genesymbol %in% expressed_receptors) %>% pull(source_genesymbol) %>% unique()
+  potential_ligands <- potential_ligands[!is.na(potential_ligands)]
+  background_expressed_genes <- background_expressed_genes[!is.na(background_expressed_genes)]
+
   return(list(potential_ligands,background_expressed_genes))
 }
 
