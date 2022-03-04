@@ -11,7 +11,8 @@ RankActiveLigands(
   species = "human",
   database = "OmniPath",
   ligands = NULL,
-  recepts = NULL
+  recepts = NULL,
+  ...
 )
 }
 \arguments{
@@ -34,6 +35,8 @@ When ligands is supplied, recepts must also be supplied and equidimensional.}
 
 \item{recepts}{Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
 When recepts is supplied, ligands must also be supplied and equidimensional.}
+
+\item{...}{Additional arguments passed to IDPotentialLigands}
 }
 \value{
 Returns a matrix where columns are cells, rows are potential ligands, and values are pearson coefficients corresponding to each ligand's predicted activity in that cell.

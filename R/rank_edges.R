@@ -54,6 +54,7 @@ IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
 #' When ligands is supplied, recepts must also be supplied and equidimensional.
 #' @param recepts Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
 #' When recepts is supplied, ligands must also be supplied and equidimensional.
+#' @param ... Additional arguments passed to IDPotentialLigands
 #'
 #' @return Returns a matrix where columns are cells, rows are potential ligands, and values are pearson coefficients corresponding to each ligand's predicted activity in that cell.
 #' @references Browaeys, et al. Nat Methods (2019); Cortal, et al. Nat Biotech (2021)
@@ -67,7 +68,7 @@ RankActiveLigands <- function(seu, variant_genes, dq = 0.5,
   if(species %notin% c("human","mouse","rat") & database != "custom") {
     stop("Only human, mouse, and rat are currently supported as species\nTo use a custom ligand-receptor pair list please set database = 'custom'")
   }
-
+  library(nichenetr)
   seu <- RunMCA(seu, features = variant_genes)
   ds2 <- do.call(rbind,GetCellGeneRanking(seu, reduction = "mca"))
   ds2s <- scales::rescale(ds2, from = c(min(ds2),quantile(ds2,dq)), to = c(0,1))
