@@ -22,7 +22,7 @@
 #' @param tree.cut.quantile The dendrogram tree height quantile at which the dendrogram should be cut. Higher values lead to fewer, smaller modules.
 #'
 #' @return When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
-#' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2
+#' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2 pbapply
 #' @export
 #'
 #' @examples
@@ -57,6 +57,12 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   ligands.use <- intersect(ligands, rownames(object@assays[[assay]]))
   recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
   genes.use = union(ligands.use, recepts.use)
+
+  lit.put <- lit.put %>%
+    dplyr::filter(source_genesymbol %in% ligands.use) %>%
+    dplyr::filter(target_genesymbol %in% recepts.use)
+  ligands <- as.character(lit.put[, "source_genesymbol"])
+  recepts <- as.character(lit.put[, "target_genesymbol"])
 
   if(specific) {
     message("Only considering genes in per-cell gene signature")

@@ -57,6 +57,12 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
   recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
   genes.use = union(ligands.use, recepts.use)
 
+  lit.put <- lit.put %>%
+    dplyr::filter(source_genesymbol %in% ligands.use) %>%
+    dplyr::filter(target_genesymbol %in% recepts.use)
+  ligands <- as.character(lit.put[, "source_genesymbol"])
+  recepts <- as.character(lit.put[, "target_genesymbol"])
+
   if(is.null(senders) & is.null(receivers)){
     senders <- receivers <- colnames(object)
     cell.exprs <- as.data.frame(GetAssayData(object, assay = assay, slot = slot)[genes.use,]) %>% rownames_to_column(var = "gene")
