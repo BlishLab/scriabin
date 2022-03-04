@@ -63,7 +63,7 @@ IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
 #' @examples
 RankActiveLigands <- function(seu, variant_genes, dq = 0.5,
                                    species = "human", database = "OmniPath",
-                                   ligands = NULL, recepts = NULL) {
+                                   ligands = NULL, recepts = NULL, ...) {
   if(species %notin% c("human","mouse","rat") & database != "custom") {
     stop("Only human, mouse, and rat are currently supported as species\nTo use a custom ligand-receptor pair list please set database = 'custom'")
   }
@@ -76,11 +76,11 @@ RankActiveLigands <- function(seu, variant_genes, dq = 0.5,
   if(species != "human") {
     warning("Warning: NicheNet's ligand-target matrix is built only on human observations. Use caution when extrapolating the data in this database to non-human datasets")
     colnames(dsp) <- nichenetr::convert_mouse_to_human_symbols(colnames(dsp))
-    potential_ligands <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts)
+    potential_ligands <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts, ...)
     potential_ligands <- nichenetr::convert_mouse_to_human_symbols(potential_ligands)
   }
   else {
-    potential_ligands <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts)
+    potential_ligands <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts, ...)
   }
   shared_targets <- intersect(rownames(ligand_target_matrix),colnames(dsp))
   shared_targets <- shared_targets[shared_targets %in% potential_ligands[[2]]]

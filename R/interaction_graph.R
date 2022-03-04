@@ -33,7 +33,6 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
                          weighted = F, nichenet_results = NULL,
                          pearson.cutoff = 0.075, scale.factors = c(1.5,3)) {
   #code to connect with l-r databases adapted from Connectome (Raredon, et al.)
-  message("This is the square-root CCIM function")
   if(database=="custom") {
     message("Using custom database")
     ligands <- ligands
