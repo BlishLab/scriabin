@@ -7,7 +7,7 @@
 RankActiveLigands(
   seu,
   variant_genes,
-  dq = 0.5,
+  dq = 0.05,
   species = "human",
   database = "OmniPath",
   ligands = NULL,

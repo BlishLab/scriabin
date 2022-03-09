@@ -62,18 +62,20 @@ IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
 #' @export
 #'
 #' @examples
-RankActiveLigands <- function(seu, variant_genes, dq = 0.5,
-                                   species = "human", database = "OmniPath",
-                                   ligands = NULL, recepts = NULL, ...) {
+RankActiveLigands <- function(seu, variant_genes, dq = 0.05,
+                              species = "human", database = "OmniPath",
+                              ligands = NULL, recepts = NULL, ...) {
   if(species %notin% c("human","mouse","rat") & database != "custom") {
     stop("Only human, mouse, and rat are currently supported as species\nTo use a custom ligand-receptor pair list please set database = 'custom'")
   }
   library(nichenetr)
   seu <- RunMCA(seu, features = variant_genes)
   ds2 <- t(CelliD:::GetCellGeneDistance(seu, reduction = "mca", dims = 1:30))
-  ds2s <- scales::rescale(ds2, from = c(min(ds2),quantile(ds2,dq)), to = c(0,1))
-  ds2s[ds2s>1] <- 1
-  dsp <- 1-ds2s
+  rq <- matrixStats::rowQuantiles(ds2, probs = dq)
+  dsp <- ds2
+  dsp[rq[row(dsp)]<dsp] <- 0
+  dsp[dsp>0] <- 1
+
   if(species != "human") {
     warning("Warning: NicheNet's ligand-target matrix is built only on human observations. Use caution when extrapolating the data in this database to non-human datasets")
     colnames(dsp) <- nichenetr::convert_mouse_to_human_symbols(colnames(dsp))

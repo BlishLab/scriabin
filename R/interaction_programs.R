@@ -250,7 +250,8 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL, sim_threshold = 0.1
 #' @param min.members Minimum number of unique ligands or receptors in order to keep a module. Default: 1. Ie, if a module contains many ligand-receptor pairs that all share the same single ligand, this module will be discarded
 #'
 #' @return Returns a data.frame of all significant modules, their connectivity p-values for each sample, and their intramodular connectivity in each sample
-#' @import pbapply plyr dplyr purrr
+#' @import pbapply dplyr purrr
+#' @importFrom plyr ldply
 #' @export
 #'
 #' @examples

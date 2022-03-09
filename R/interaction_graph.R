@@ -21,7 +21,9 @@
 #' @param scale.factors numeric. Determines the magnitude of ligand and receptor expression values weighting by their predicted activities. Given scale factors of c(x,y), ligand-receptor pairs where the ligand's pearson = pearson.cutoff will be weighted by a factor of x, and the ligand with the highest pearson will be weighted by a factor of y. Default: c(1.5,3).
 #'
 #' @return Returns a Seurat object with assay "CCIM" where columns are cell-cell pairs and rows are ligand-receptor pairs. "Expression" values are the geometric mean expression value between each pair of sender and receiver cells. By default, names ligand-receptor pairs and cell-cell pairs are separated by "="
-#' @import dplyr pbapply Matrix Seurat tibble
+#' @import dplyr pbapply Matrix Seurat
+#' @importFrom tibble rownames_to_column
+#' @importFrom tibble column_to_rownames
 #' @references Browaeys, et al. Nature Methods (2019)
 #' @export
 #'
@@ -241,7 +243,9 @@ MapMetaData <- function(ccim_seu, seu, columns_map = NULL) {
 #' @param graph_name Name of summarized interaction graph to place into output. Default "prior_interaction"
 #'
 #' @return Returns a Seurat object with an unweighted summarized interaction graph in the Graphs slot
-#' @import dplyr Seurat tibble stats
+#' @import dplyr Seurat stats
+#' @importFrom tibble rownames_to_column
+#' @importFrom tibble column_to_rownames
 #' @export
 #'
 #' @examples
@@ -364,7 +368,9 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
 #' @param graph_name Name of summarized interaction graph to place into output. Default "weighted_interaction"
 #'
 #' @return Returns a Seurat object with a weighted summarized interaction graph in the Graphs slot
-#' @import dplyr tidyft Seurat tibble stats
+#' @import dplyr Seurat stats
+#' @importFrom tibble rownames_to_column
+#' @importFrom tibble column_to_rownames
 #' @references Browaeys, et al. Nature Methods (2019)
 
 #' @export

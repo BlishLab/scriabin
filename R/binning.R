@@ -9,6 +9,7 @@
 #' @param optim_k.unique Mean number of datasets represented in each bin at which connectivity optimization will be considered complete
 #'
 #' @return A binned Seurat object with bin assignments in the "bins" column of the meta.data slot
+#' @import dplyr Seurat
 #' @export
 #'
 #' @examples
@@ -57,10 +58,10 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
     data.frame(id = paste(x,1:ncol(object.list[[x]]),sep = "_"), cell = colnames(object.list[[x]]))
   }))
 
-  full_anchors$cell.name1 <- mapvalues(paste(full_anchors$dataset1,full_anchors$cell1,sep = "_"),
+  full_anchors$cell.name1 <- scriabin::mapvalues(paste(full_anchors$dataset1,full_anchors$cell1,sep = "_"),
                                        from = cell_list$id, to = cell_list$cell, warn_missing = F)
 
-  full_anchors$cell.name2 <- mapvalues(paste(full_anchors$dataset2,full_anchors$cell2,sep = "_"),
+  full_anchors$cell.name2 <- scriabin::mapvalues(paste(full_anchors$dataset2,full_anchors$cell2,sep = "_"),
                                        from = cell_list$id, to = cell_list$cell, warn_missing = F)
 
   anchors_map <- full_anchors[full_anchors$score>anchor_score_threshold,] #remove anchors with poor scoring
@@ -101,7 +102,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
       return(closest_cluster)
     })
     names(ids) <- colnames(seuObj)
-    nbs_completion <- data.frame(cell=names(ids),id=ids,ident=gsub(gsub_function, "\\1", names(ids))) %>% group_by(id) %>% mutate(unique_types=n_distinct(ident))
+    nbs_completion <- data.frame(cell=names(ids),id=ids,ident=gsub(gsub_function, "\\1", names(ids))) %>% dplyr::group_by(id) %>% dplyr::mutate(unique_types=n_distinct(ident))
     nbs_unique <- unique(nbs_completion[,c("id","unique_types")])
     success1 <- ifelse(mean(nbs_unique$unique_types)>optim_k.unique,T,F)
     success2 <- n>50
@@ -136,8 +137,8 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
 
 
   ###Assign anything in a bad neighborhood to one that's more complete
-  cells_reassign <- nbs_completion %>% dplyr::filter(unique_types<optim_k.unique) %>% pull(cell)
-  bad_nbs <- nbs_unique %>% dplyr::filter(unique_types<optim_k.unique) %>% pull(id)
+  cells_reassign <- nbs_completion %>% dplyr::filter(unique_types<optim_k.unique) %>% dplyr::pull(cell)
+  bad_nbs <- nbs_unique %>% dplyr::filter(unique_types<optim_k.unique) %>% dplyr::pull(id)
   outer_reassign <- outerresults[,colnames(outerresults) %in% nbs_unique$id]
   outer_reassign <- outer_reassign[cells_reassign,colnames(outer_reassign) %notin% bad_nbs]
   reassign_ids <- apply(outer_reassign,1,FUN = function(i){
@@ -151,7 +152,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
   new_ids <- ifelse(names(ids) %in% names(reassign_ids),reassign_ids,ids)
   names(new_ids) <- names(ids)
   new_completion <- data.frame(cell=names(new_ids),id=new_ids,ident=gsub(gsub_function, "\\1", names(new_ids))) %>%
-    group_by(id) %>% mutate(unique_types=n_distinct(ident))
+    dplyr::group_by(id) %>% dplyr::mutate(unique_types=n_distinct(ident))
   new_unique <- unique(new_completion[,c("id","unique_types")])
   if(mean(new_unique$unique_types)==length(object.list)) {
     seuObj$bins <- new_ids
@@ -166,7 +167,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
   stolen_completion <- new_completion
   stolen_unique <- new_unique
 
-  incomplete_ids <- sample(stolen_unique %>% dplyr::filter(unique_types<length(object.list)) %>% pull(id))
+  incomplete_ids <- sample(stolen_unique %>% dplyr::filter(unique_types<length(object.list)) %>% dplyr::pull(id))
   for (j in 1:length(incomplete_ids)) {
     ##for each randomly-sampled incomplete neighborhood
     noi <- incomplete_ids[j]
@@ -195,10 +196,10 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
     }
     ##reevaluate completion
     stolen_completion <- data.frame(cell=names(steal_ids),id=steal_ids,ident=gsub(gsub_function, "\\1", names(steal_ids))) %>%
-      group_by(id) %>% mutate(unique_types=n_distinct(ident))
+      dplyr::group_by(id) %>% dplyr::mutate(unique_types=n_distinct(ident))
     stolen_unique <- unique(stolen_completion[,c("id","unique_types")])
   }
-  incomplete_ids <- stolen_unique %>% dplyr::filter(unique_types<length(object.list)) %>% pull(id)
+  incomplete_ids <- stolen_unique %>% dplyr::filter(unique_types<length(object.list)) %>% dplyr::pull(id)
   if(verbose){message(paste0("Merging partners must be found for ",length(incomplete_ids)," bins"))}
 
 
@@ -234,7 +235,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
 
   }
   merge_completion <- data.frame(cell=names(merge_ids),id=merge_ids,ident=gsub(gsub_function, "\\1", names(merge_ids))) %>%
-    group_by(id) %>% mutate(unique_types=n_distinct(ident))
+    dplyr::group_by(id) %>% dplyr::mutate(unique_types=n_distinct(ident))
   merge_unique <- unique(merge_completion[,c("id","unique_types")])
 
   message(paste0("Finished! Found ",length(unique(merge_ids))," bins"))
@@ -288,6 +289,7 @@ random_connectivity_test <- function(seu_oi = seu_oi,
 #' @param optim_k.unique Mean number of datasets represented in each bin at which connectivity optimization will be considered complete
 #'
 #' @return A binned Seurat object with bin assignments in the "bins" column of the meta.data slot
+#' @import dplyr Seurat pbapply
 #' @export
 #'
 #' @examples
@@ -352,7 +354,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
                                         formula = Var1~Var2,value.var = "Freq") %>% column_to_rownames(var = "Var1"))
       anno.overlap <- t(100*anno.overlap/rowSums(anno.overlap))
       bin_max <- data.frame(max=apply(anno.overlap,1,max)) %>% rownames_to_column("bin")
-      exempt_bins <- bin_max %>% dplyr::filter(max>95) %>% pull(bin)
+      exempt_bins <- bin_max %>% dplyr::filter(max>95) %>% dplyr::pull(bin)
 
       nonsig_bins <- names(bin_p)[!bin_p]
       nonsig_bins <- nonsig_bins[nonsig_bins %notin% exempt_bins]
@@ -381,8 +383,8 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
     bin_id_list <- unlist(lapply(bin_ids, function(x) {x$bins}))
     bin_rank <- as.character(rank(unique(bin_id_list)))
     names(bin_rank) <- unique(bin_id_list)
-    bin_id_list <- mapvalues(bin_id_list, from = names(bin_rank), to = bin_rank)
-    seu$bins <- mapvalues(colnames(seu), from = names(bin_id_list), to = bin_id_list)
+    bin_id_list <- scriabin::mapvalues(bin_id_list, from = names(bin_rank), to = bin_rank)
+    seu$bins <- scriabin::mapvalues(colnames(seu), from = names(bin_id_list), to = bin_id_list)
     return(seu)
   }
 
@@ -421,7 +423,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
                                       formula = Var1~Var2,value.var = "Freq") %>% column_to_rownames(var = "Var1"))
     anno.overlap <- t(100*anno.overlap/rowSums(anno.overlap))
     bin_max <- data.frame(max=apply(anno.overlap,1,max)) %>% rownames_to_column("bin")
-    exempt_bins <- bin_max %>% dplyr::filter(max>95) %>% pull(bin)
+    exempt_bins <- bin_max %>% dplyr::filter(max>95) %>% dplyr::pull(bin)
 
     nonsig_bins <- names(bin_p)[!bin_p]
     nonsig_bins <- nonsig_bins[nonsig_bins %notin% exempt_bins]
@@ -508,22 +510,22 @@ BinAnnotationPlot <- function(seu, cell.type.calls = "celltype.l2") {
 BinCompositionAnalysis <- function(seu, split.by = "time.orig", fill.colors = NULL) {
   tp_props <- as.data.frame(table(seu$bins, seu@meta.data[,split.by]))
   tp_counts <- as.data.frame(table(seu@meta.data[,split.by]))
-  tp_props$total <- as.numeric(as.character(mapvalues(tp_props$Var2, from = tp_counts$Var1,
+  tp_props$total <- as.numeric(as.character(scriabin::mapvalues(tp_props$Var2, from = tp_counts$Var1,
                                                       to = tp_counts$Freq, warn_missing = F)))
   tp_props$Freq <- 100*tp_props$Freq/tp_props$total
   colnames(tp_props) <- c("bin","tp","Freq","total")
   bin_mean <- aggregate(tp_props$Freq,by = list(tp_props$bin), FUN=mean)
-  tp_props$mean <- as.numeric(as.character(mapvalues(tp_props$bin, from = bin_mean$Group.1, to = bin_mean$x, warn_missing = F)))
+  tp_props$mean <- as.numeric(as.character(scriabin::mapvalues(tp_props$bin, from = bin_mean$Group.1, to = bin_mean$x, warn_missing = F)))
   tp_props$tp_dev <- abs(tp_props$Freq-tp_props$mean)
   tp_mat <- reshape2::dcast(tp_props[,c("bin","tp","Freq")], formula = bin~tp, value.var = "Freq")
 
   data_plot <- data.frame(bin = tp_mat$bin)
 
   bin_sd <- aggregate(tp_props$Freq,by = list(tp_props$bin), FUN=sd)
-  data_plot$dev <- as.numeric(as.character(mapvalues(data_plot$bin, from = bin_sd$Group.1, to = bin_sd$x, warn_missing = F)))
+  data_plot$dev <- as.numeric(as.character(scriabin::mapvalues(data_plot$bin, from = bin_sd$Group.1, to = bin_sd$x, warn_missing = F)))
 
   bin_size <- as.data.frame(table(seu$bins))
-  data_plot$size <- as.numeric(as.character(mapvalues(data_plot$bin, from = bin_size$Var1, to = bin_size$Freq, warn_missing = F)))
+  data_plot$size <- as.numeric(as.character(scriabin::mapvalues(data_plot$bin, from = bin_size$Var1, to = bin_size$Freq, warn_missing = F)))
 
   data_plot$region <- 1:nrow(data_plot)
 
