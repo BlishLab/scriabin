@@ -19,7 +19,7 @@
 #' var_genes <- IDVariantGenes(seu)
 #' }
 IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
-                           group.by = "time.orig", filter_quality = F) {
+                           group.by = "orig.ident", filter_quality = F) {
   var_genes <- AverageExpression(seu, assays = assay, slot = slot)[[assay]]
   var_genes_sd <- data.frame(x = rownames(var_genes), y = rowSds(var_genes))
   if(filter_quality) {
@@ -58,7 +58,7 @@ IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
 #'
 #' @return Returns a matrix where columns are cells, rows are potential ligands, and values are pearson coefficients corresponding to each ligand's predicted activity in that cell.
 #' @references Browaeys, et al. Nat Methods (2019); Cortal, et al. Nat Biotech (2021)
-#' @import nichenetr dplyr scales
+#' @import nichenetr dplyr scales CelliD
 #' @export
 #'
 #' @examples
@@ -70,7 +70,7 @@ RankActiveLigands <- function(seu, variant_genes, dq = 0.5,
   }
   library(nichenetr)
   seu <- RunMCA(seu, features = variant_genes)
-  ds2 <- do.call(rbind,GetCellGeneRanking(seu, reduction = "mca"))
+  ds2 <- t(CelliD:::GetCellGeneDistance(seu, reduction = "mca", dims = 1:30))
   ds2s <- scales::rescale(ds2, from = c(min(ds2),quantile(ds2,dq)), to = c(0,1))
   ds2s[ds2s>1] <- 1
   dsp <- 1-ds2s

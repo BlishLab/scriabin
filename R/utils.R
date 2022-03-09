@@ -24,7 +24,7 @@ LoadLR <- function(species = "human", database = "OmniPath", ligands = NULL, rec
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
-    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
   }
   else {
     if(species %notin% c("human","mouse","rat")) {
@@ -85,6 +85,7 @@ IDPotentialLigands <- function(seu, assay = "SCT", slot = "data", min.pct = 0.02
   expressed_receptors = intersect(receptors,expressed_genes)
   potential_ligands = lr_network %>% dplyr::filter(source_genesymbol %in% expressed_ligands & target_genesymbol %in% expressed_receptors) %>% pull(source_genesymbol) %>% unique()
   potential_ligands <- potential_ligands[!is.na(potential_ligands)]
+  potential_ligands <- potential_ligands[potential_ligands %in% colnames(ligand_target_matrix)]
   background_expressed_genes <- background_expressed_genes[!is.na(background_expressed_genes)]
 
   return(list(potential_ligands,background_expressed_genes))

@@ -16,10 +16,24 @@ FindCircuits(
 )
 }
 \arguments{
-\item{split.by}{}
+\item{seu}{A binned Seurat object with binning results stored in the "bins" column of the meta.data slot}
+
+\item{nnr}{Ligand and target ranking results from NicheNet. Currently only the output of \code{PrioritizeLigands} is supported.}
+
+\item{ranked_genes}{Single-cell gene signatures, output from \code{crGeneSig}}
+
+\item{tps}{Character vector of two timepoints between which to find circuits. Time point identities must be in the correct sequential order.}
+
+\item{split.by}{Meta.data column name indicating how full dataset should be split. This corresponds to the column that contain time point information}
+
+\item{assay.use}{Name of assay from which to gather gene expression data}
+
+\item{slot.use}{Name of slot within assay from which to gather gene expression data}
+
+\item{pearson.cutoff}{numeric. Threshold for determining which ligand activities are "active". Ligands below this threshold will be considered inactive and not used for weighting. Default: 0.075}
 }
 \value{
-
+Returns a data.frame containing all single-cell level circuits between two timepoints of a dataset
 }
 \description{
 Identify circuits between two timepoints

@@ -9,7 +9,7 @@ IDVariantGenes(
   assay = "SCT",
   slot = "data",
   n.gene = 2000,
-  group.by = "time.orig",
+  group.by = "orig.ident",
   filter_quality = F
 )
 }

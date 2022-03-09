@@ -10,12 +10,21 @@ FindAllCircuits(
   ranked_genes = NULL,
   all.tps = NULL,
   subsample = F,
-  subsample.n = 1e+05,
-  ...
+  subsample.n = 1e+05
 )
 }
 \arguments{
-\item{...}{}
+\item{seu}{A binned Seurat object with binning results stored in the "bins" column of the meta.data slot}
+
+\item{nnr}{Ligand and target ranking results from NicheNet. Currently only the output of \code{PrioritizeLigands} is supported.}
+
+\item{ranked_genes}{Single-cell gene signatures, output from \code{crGeneSig}}
+
+\item{all.tps}{Character vector of all timepoints between which to find circuits. Time point identities must be in the correct sequential order.}
+
+\item{subsample}{logical. Subsample circuits for each pair of timepoints to the threshold set in subsample.n?}
+
+\item{subsample.n}{numeric. If subsample=T, subsample circuits from each timepoint pair to this level}
 }
 \value{
 

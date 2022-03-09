@@ -1,21 +1,24 @@
 #' Identify circuits between two timepoints
 #'
-#' @param seu
-#' @param nnr
-#' @param ranked_genes
-#' @param tps
-#' @param assay.use
-#' @param slot.use
-#' @param pearson.cutoff
-#' @param split.by
+#' @param seu A binned Seurat object with binning results stored in the "bins" column of the meta.data slot
+#' @param nnr Ligand and target ranking results from NicheNet. Currently only the output of `PrioritizeLigands` is supported.
+#' @param ranked_genes Single-cell gene signatures, output from `crGeneSig`
+#' @param tps Character vector of two timepoints between which to find circuits. Time point identities must be in the correct sequential order.
+#' @param assay.use Name of assay from which to gather gene expression data
+#' @param slot.use Name of slot within assay from which to gather gene expression data
+#' @param pearson.cutoff numeric. Threshold for determining which ligand activities are "active". Ligands below this threshold will be considered inactive and not used for weighting. Default: 0.075
+#' @param split.by Meta.data column name indicating how full dataset should be split. This corresponds to the column that contain time point information
 #'
-#' @return
+#' @return Returns a data.frame containing all single-cell level circuits between two timepoints of a dataset
+#' @import Seurat Matrix dplyr
+#' @importFrom tidyr separate
 #' @export
 #'
 #' @examples
 FindCircuits <- function(seu, nnr, ranked_genes, tps, split.by = "orig.ident",
                          assay.use = "SCT", slot.use = "data", pearson.cutoff = 0.075) {
-
+  ### things to fix in here: provide target linking strategy that doesn't rely on Prioritize Ligands.
+  ### provide adequate LR resource support, currently relies only on Connectome's fantom5
   nnr <- nnr[colnames(seu)]
   ranked_genes <- ranked_genes[colnames(seu)]
 
@@ -58,10 +61,10 @@ FindCircuits <- function(seu, nnr, ranked_genes, tps, split.by = "orig.ident",
   })
   colnames(gs_exprs) <- names(gs_nnr)
 
-  gs_exprs <- gs_exprs[,colMeans(gs_exprs)>0]
+  gs_exprs <- gs_exprs[,Matrix::colMeans(gs_exprs)>0]
   ligands_search <- reshape2::melt(t(as.matrix(gs_exprs))) %>% dplyr::filter(value>0)
   colnames(ligands_search) <- c("cell","ligand","value")
-  ligands_search$bins <- mapvalues(ligands_search$cell, from = colnames(seu), to = seu$bins, warn_missing = F) #this is a list of significant ligands sent by senders at t2
+  ligands_search$bins <- scriabin::mapvalues(ligands_search$cell, from = colnames(seu), to = seu$bins, warn_missing = F) #this is a list of significant ligands sent by senders at t2
 
   #now identify cells in the first timepoint with these targets
   nnr_l1 <- bind_rows(nnr_l[gsub(gsub_function,"\\1",names(nnr_l))==tps[1]], .id = "cell") %>%
@@ -115,9 +118,9 @@ FindCircuits <- function(seu, nnr, ranked_genes, tps, split.by = "orig.ident",
   links <- merge(links, nnr_filtered[,c("cell.z","ligand.y")], by = "ligand.y", all.x = F, all.y = F)
   links$tp1 <- tps[1]
   links$tp2 <- tps[2]
-  links$cell.x <- plyr::mapvalues(links$cell.x, from=new_cell_names, to = orig_cell_names, warn_missing = F)
-  links$cell.y <- plyr::mapvalues(links$cell.y, from=new_cell_names, to = orig_cell_names, warn_missing = F)
-  links$cell.z <- plyr::mapvalues(links$cell.z, from=new_cell_names, to = orig_cell_names, warn_missing = F)
+  links$cell.x <- scriabin::mapvalues(links$cell.x, from=new_cell_names, to = orig_cell_names, warn_missing = F)
+  links$cell.y <- scriabin::mapvalues(links$cell.y, from=new_cell_names, to = orig_cell_names, warn_missing = F)
+  links$cell.z <- scriabin::mapvalues(links$cell.z, from=new_cell_names, to = orig_cell_names, warn_missing = F)
 
 
   return(links[,c("tp1","ligand.x","pearson","cell.x",
@@ -127,20 +130,19 @@ FindCircuits <- function(seu, nnr, ranked_genes, tps, split.by = "orig.ident",
 
 #' Find all circuits in a multi-timepoint longitudinal dataset
 #'
-#' @param seu
-#' @param nnr
-#' @param ranked_genes
-#' @param all.tps
-#' @param subsample
-#' @param subsample.n
-#' @param ...
+#' @param seu A binned Seurat object with binning results stored in the "bins" column of the meta.data slot
+#' @param nnr Ligand and target ranking results from NicheNet. Currently only the output of `PrioritizeLigands` is supported.
+#' @param ranked_genes Single-cell gene signatures, output from `crGeneSig`
+#' @param all.tps Character vector of all timepoints between which to find circuits. Time point identities must be in the correct sequential order.
+#' @param subsample logical. Subsample circuits for each pair of timepoints to the threshold set in subsample.n?
+#' @param subsample.n numeric. If subsample=T, subsample circuits from each timepoint pair to this level
 #'
 #' @return
 #' @export
 #'
 #' @examples
 FindAllCircuits <- function(seu, nnr, ranked_genes = NULL, all.tps = NULL,
-                            subsample = F, subsample.n = 1e5, ...) {
+                            subsample = F, subsample.n = 1e5) {
   message("Identifying circuits . . . ")
   all_circuits <- bind_rows(pblapply(seq_along(1:(length(all.tps)-1)), function(x) {
     circuits <- FindCircuits(seu, nnr,
