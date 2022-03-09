@@ -460,7 +460,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
 #'
 #' @examples
 check_completion <- function(nbs) {
-  unique(nbs_completion$unique_types)==length(unique(nbs$ident))
+  unique(nbs$unique_types)==length(unique(nbs$ident))
 }
 
 #' Heatmap of bin-annotation overlap
