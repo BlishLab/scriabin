@@ -5,7 +5,7 @@
 \title{Detect Inflection Point of a Concave Curve (Elbox Method). Ripped from:
 \url{https://github.com/ahasverus/elbow}}
 \usage{
-elbow(data, plot = TRUE)
+elbow(data)
 }
 \arguments{
 \item{data}{a two-columns data frame (x and y respectively).}
