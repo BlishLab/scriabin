@@ -183,7 +183,7 @@ mapvalues <- function (x, from, to, warn_missing = TRUE)
 #' @details This function detects unique inflection point in a simple concave
 #'   curve. The curve can be concave down/up with a positive/negative slope.
 #'
-#' @import stats graphics
+#' @import graphics
 #'
 #' @export
 #'

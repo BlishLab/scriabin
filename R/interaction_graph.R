@@ -243,7 +243,7 @@ MapMetaData <- function(ccim_seu, seu, columns_map = NULL) {
 #' @param graph_name Name of summarized interaction graph to place into output. Default "prior_interaction"
 #'
 #' @return Returns a Seurat object with an unweighted summarized interaction graph in the Graphs slot
-#' @import dplyr Seurat stats
+#' @import dplyr Seurat
 #' @importFrom tibble rownames_to_column
 #' @importFrom tibble column_to_rownames
 #' @export
@@ -368,7 +368,7 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
 #' @param graph_name Name of summarized interaction graph to place into output. Default "weighted_interaction"
 #'
 #' @return Returns a Seurat object with a weighted summarized interaction graph in the Graphs slot
-#' @import dplyr Seurat stats
+#' @import dplyr Seurat
 #' @importFrom tibble rownames_to_column
 #' @importFrom tibble column_to_rownames
 #' @references Browaeys, et al. Nature Methods (2019)
