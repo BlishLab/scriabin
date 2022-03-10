@@ -258,7 +258,7 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
-    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
   }
   else {
     # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
@@ -385,7 +385,7 @@ BuildWeightedInteraction <- function (object, nichenet_results, assay = "SCT", s
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
-    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
   }
   else {
     # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
@@ -410,11 +410,11 @@ BuildWeightedInteraction <- function (object, nichenet_results, assay = "SCT", s
   recepts.df <- data.frame(lit.put[, c(1,3)]) %>% mutate_all(as.character)
   colnames(recepts.df) <- c("pair","recepts")
   recepts.df$id <- 1:nrow(recepts.df)
-  cell.exprs.rec <- merge(recepts.df, cell.exprs,
+  cell.exprs.rec <- merge(recepts.df[,2:3], cell.exprs,
                           by.x = "recepts", by.y = "gene", all.x = T)
   cell.exprs.rec <- cell.exprs.rec[order(cell.exprs.rec$id),
                                    ]
-  cell.exprs.lig <- merge(ligands.df, cell.exprs,
+  cell.exprs.lig <- merge(ligands.df[,2:3], cell.exprs,
                           by.x = "ligands", by.y = "gene", all.x = T)
   cell.exprs.lig <- cell.exprs.lig[order(cell.exprs.lig$id),
                                    ]
