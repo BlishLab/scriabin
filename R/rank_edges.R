@@ -77,7 +77,7 @@ RankActiveLigands <- function(seu, variant_genes, dq = 0.05,
   dsp[dsp>0] <- 1
 
   if(species != "human") {
-    warning("Warning: NicheNet's ligand-target matrix is built only on human observations. Use caution when extrapolating the data in this database to non-human datasets")
+    warning("Warning: NicheNet's ligand-target matrix is built only on human observations. Use caution when extrapolating the data in this database to non-human datasets\n")
     colnames(dsp) <- nichenetr::convert_mouse_to_human_symbols(colnames(dsp))
     potential_ligands <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts, ...)
 
@@ -93,7 +93,7 @@ RankActiveLigands <- function(seu, variant_genes, dq = 0.05,
   preds <- cor(dsp,ltm[,colnames(ltm) %in% potential_ligands[[1]]])
   preds[is.na(preds)] <- 0
   if(species != "human") {
-    colnames(preds) <- nichenetr::convert_human_to_mouse_symbols(rownames(dsp))
+    colnames(preds) <- nichenetr::convert_human_to_mouse_symbols(colnames(preds))
   }
   return(t(preds))
 }

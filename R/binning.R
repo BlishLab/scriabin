@@ -469,6 +469,10 @@ check_completion <- function(nbs) {
 #' @param cell.type.calls Name of meta.data column containing cell type calls on which to visualize overlap
 #'
 #' @return A heatmap depicting cell type calls within each bin
+#' @import ComplexHeatmap
+#' @importFrom tibble rownames_to_column
+#' @importFrom tibble column_to_rownames
+#' @importFrom circlize colorRamp2
 #' @export
 #'
 #' @examples
