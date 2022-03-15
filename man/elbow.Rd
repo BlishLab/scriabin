@@ -9,8 +9,6 @@ elbow(data)
 }
 \arguments{
 \item{data}{a two-columns data frame (x and y respectively).}
-
-\item{plot}{a boolean. If TRUE (default) curves are plotted.}
 }
 \value{
 This function returns a 2-elements list with:
@@ -28,29 +26,6 @@ the inflection point of a concave curve. More information on this method:
 \details{
 This function detects unique inflection point in a simple concave
 curve. The curve can be concave down/up with a positive/negative slope.
-}
-\examples{
-## Loading dataset ----
-data(profiles)
-head(profiles)
-
-## Object returned ----
-x <- elbow(profiles[ , c("x", "concave_down_pos_slo")], plot = FALSE)
-class(x)
-names(x)
-x$"x_selected"
-
-## Graphical usage ----
-x <- elbow(profiles[ , c("x", "concave_down_pos_slo")])
-
-## The four implemented profiles ----
-curves <- colnames(profiles)[-1]
-par(mfrow = c(2, 2))
-for (i in curves) {
-  elbow(profiles[ , c("x", i)])
-  title(i)
-}
-
 }
 \author{
 Nicolas CASAJUS, \email{nicolas.casajus@fondationbiodiversite.com}

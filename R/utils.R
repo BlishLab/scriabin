@@ -173,7 +173,6 @@ mapvalues <- function (x, from, to, warn_missing = TRUE)
 #'   \url{https://en.wikipedia.org/wiki/Elbow_method_(clustering)}.
 #'
 #' @param data a two-columns data frame (x and y respectively).
-#' @param plot a boolean. If TRUE (default) curves are plotted.
 #'
 #' @return This function returns a 2-elements list with:
 #'   - the value on x-Axis corresponding to the inflection point
@@ -188,27 +187,6 @@ mapvalues <- function (x, from, to, warn_missing = TRUE)
 #' @author Nicolas CASAJUS, \email{nicolas.casajus@@fondationbiodiversite.com}
 #'
 #' @examples
-#' ## Loading dataset ----
-#' data(profiles)
-#' head(profiles)
-#'
-#' ## Object returned ----
-#' x <- elbow(profiles[ , c("x", "concave_down_pos_slo")], plot = FALSE)
-#' class(x)
-#' names(x)
-#' x$"x_selected"
-#'
-#' ## Graphical usage ----
-#' x <- elbow(profiles[ , c("x", "concave_down_pos_slo")])
-#'
-#' ## The four implemented profiles ----
-#' curves <- colnames(profiles)[-1]
-#' par(mfrow = c(2, 2))
-#' for (i in curves) {
-#'   elbow(profiles[ , c("x", i)])
-#'   title(i)
-#' }
-#'
 
 elbow <- function(data) {
   ## Argument checks ----
@@ -233,9 +211,6 @@ elbow <- function(data) {
     stop("Missing values detected.")
   }
 
-  if (!is.logical(plot)) {
-    stop("`plot` must be a boolean.")
-  }
 
 
   ## Data transformation ----

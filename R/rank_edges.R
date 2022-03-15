@@ -11,7 +11,8 @@
 #' @param filter_quality Remove quality-associated genes like mitochondrial, ribosomal, etc.
 #'
 #' @return
-#' @import genefilter Seurat dplyr
+#' @import Seurat dplyr
+#' @importFrom genefilter rowSds
 #' @export
 #'
 #' @examples
@@ -21,7 +22,7 @@
 IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
                            group.by = "orig.ident", filter_quality = F) {
   var_genes <- AverageExpression(seu, assays = assay, slot = slot)[[assay]]
-  var_genes_sd <- data.frame(x = rownames(var_genes), y = rowSds(var_genes))
+  var_genes_sd <- data.frame(x = rownames(var_genes), y = genefilter::rowSds(var_genes))
   if(filter_quality) {
     bad.genes <- c(grep("^RPS", rownames(var_genes), value = T),
                    grep("^RPL", rownames(var_genes), value = T),

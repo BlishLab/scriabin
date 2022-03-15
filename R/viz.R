@@ -71,7 +71,7 @@ BuildVarianceHeatmap <- function(interaction_graphs, seu, name = "var_results",
   d <- dist(input, method = "euclidean")
   hc1 <- hclust(d, method = "ward")
   test <- fviz_nbclust(input, FUN = hcut, method = "wss")
-  nclust = elbow(test$data %>% mutate_all(as.numeric), plot = F)$clusters_selected
+  nclust = elbow(test$data %>% mutate_all(as.numeric))$clusters_selected
   if(!is.null(row.k)) {
     nclust = row.k
   }
@@ -83,7 +83,7 @@ BuildVarianceHeatmap <- function(interaction_graphs, seu, name = "var_results",
   d <- dist(input, method = "euclidean")
   hc1 <- hclust(d, method = "ward")
   test <- fviz_nbclust(input, FUN = hcut, method = "wss")
-  nclust = elbow(test$data %>% mutate_all(as.numeric), plot = F)$clusters_selected
+  nclust = elbow(test$data %>% mutate_all(as.numeric))$clusters_selected
   if(!is.null(col.k)) {
     nclust = col.k
   }
@@ -210,7 +210,7 @@ BuildCompHeatmap <- function(interaction_graphs, seu, name = "var_results", iden
   d <- dist(input, method = "euclidean")
   hc1 <- hclust(d, method = "ward")
   test <- fviz_nbclust(input, FUN = hcut, method = "wss")
-  nclust = elbow(test$data %>% mutate_all(as.numeric), plot = F)$clusters_selected
+  nclust = elbow(test$data %>% mutate_all(as.numeric))$clusters_selected
   if(!is.null(row.k)) {
     nclust = row.k
   }
@@ -222,7 +222,7 @@ BuildCompHeatmap <- function(interaction_graphs, seu, name = "var_results", iden
   d <- dist(input, method = "euclidean")
   hc1 <- hclust(d, method = "ward")
   test <- fviz_nbclust(input, FUN = hcut, method = "wss")
-  nclust = elbow(test$data %>% mutate_all(as.numeric), plot = F)$clusters_selected
+  nclust = elbow(test$data %>% mutate_all(as.numeric))$clusters_selected
   if(!is.null(col.k)) {
     nclust = col.k
   }
@@ -628,7 +628,7 @@ BuildSingleHeatmap <- function(interaction_graph, seu, name = "var_results",
   }
   else {
     test <- fviz_nbclust(input, FUN = hcut, method = "wss")
-    nclust = elbow(test$data %>% mutate_all(as.numeric), plot = F)$clusters_selected
+    nclust = elbow(test$data %>% mutate_all(as.numeric))$clusters_selected
   }
   row_grp <- as.character(cutree(hc1, k = nclust))
   names(row_grp) <- rownames(interaction_graph)
@@ -643,7 +643,7 @@ BuildSingleHeatmap <- function(interaction_graph, seu, name = "var_results",
   }
   else {
     test <- fviz_nbclust(input, FUN = hcut, method = "wss")
-    nclust = elbow(test$data %>% mutate_all(as.numeric), plot = F)$clusters_selected
+    nclust = elbow(test$data %>% mutate_all(as.numeric))$clusters_selected
   }
   col_grp <- as.character(cutree(hc1, k = nclust))
   names(col_grp) <- colnames(interaction_graph)
@@ -782,7 +782,7 @@ BuildGranHeatmap <- function(interaction_graphs, seu, name = "var_results",
   d <- dist(input, method = "euclidean")
   hc1 <- hclust(d, method = "ward")
   test <- fviz_nbclust(input, FUN = hcut, method = "wss")
-  nclust = elbow(test$data %>% mutate_all(as.numeric), plot = F)$clusters_selected
+  nclust = elbow(test$data %>% mutate_all(as.numeric))$clusters_selected
   if(!is.null(row.k)) {
     nclust = row.k
   }
@@ -794,7 +794,7 @@ BuildGranHeatmap <- function(interaction_graphs, seu, name = "var_results",
   d <- dist(input, method = "euclidean")
   hc1 <- hclust(d, method = "ward")
   test <- fviz_nbclust(input, FUN = hcut, method = "wss")
-  nclust = elbow(test$data %>% mutate_all(as.numeric), plot = F)$clusters_selected
+  nclust = elbow(test$data %>% mutate_all(as.numeric))$clusters_selected
   if(!is.null(col.k)) {
     nclust = col.k
   }
