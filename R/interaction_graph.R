@@ -39,7 +39,7 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
-    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), ligands = ligands, recepts = recepts)
+    lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
   }
   else {
     # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
