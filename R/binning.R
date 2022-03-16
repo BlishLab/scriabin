@@ -28,8 +28,10 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
 
   seuObj <- RenameCells(seuObj, new.names = new_cell_names)
 
-  message("Running PCA . . . ")
-  seuObj <- RunPCA(seuObj, verbose=F)
+  if(is.null(snn.reduction)) {
+    message("\nNo reduction for SNN construction provided. Running PCA . . . ")
+    seuObj <- RunPCA(seuObj, verbose=F)
+  }
 
   message(paste0("Constructing neighbor graphs with reduction ",snn.reduction," . . . "))
   seuObj <- FindNeighbors(seuObj, dims = dims, verbose = F, reduction = snn.reduction)
