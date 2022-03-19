@@ -17,7 +17,8 @@ VignetteBuilder: knitr
 biocViews: 
     ComplexHeatmap, 
     CelliD,
-    limma
+    limma,
+    genefilter
 Imports: 
     ade4,
     magrittr,
@@ -47,7 +48,9 @@ Imports:
     WGCNA,
     ComplexHeatmap,
     CelliD,
-    limma
+    limma,
+    genefilter,
+    qlcMatrix
 Remotes: 
     saeyslab/nichenetr,
     satijalab/seurat-data
