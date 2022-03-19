@@ -14,7 +14,12 @@ Suggests:
     rmarkdown,
     SeuratData
 VignetteBuilder: knitr
+biocViews: 
+    ComplexHeatmap, 
+    CelliD,
+    limma
 Imports: 
+    ade4,
     magrittr,
     graphics,
     stats,
@@ -38,8 +43,11 @@ Imports:
     Matrix,
     pbapply,
     nichenetr,
-    matrixStats
-biocViews: ComplexHeatmap, CelliD
+    matrixStats,
+    WGCNA,
+    ComplexHeatmap,
+    CelliD,
+    limma
 Remotes: 
     saeyslab/nichenetr,
     satijalab/seurat-data
