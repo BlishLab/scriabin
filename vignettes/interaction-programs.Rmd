@@ -92,7 +92,7 @@ DimPlot(panc_id, group.by = "celltype", label = T, repel = T) + NoLegend()
 In this module we see highly specific ligand expression by activated stellate cells which send to endothelial cells. Let's take a look at the genes within this module. 
 
 ```{r}
-moi <- reshape2::melt(mod_df %>% dplyr::filter(name==poi) %>%
+moi <- reshape2::melt(panc_ip_sig %>% dplyr::filter(name==poi) %>%
   select("lr_pair",contains("connectivity"))) %>% arrange(-value)
 moi$lr_pair <- factor(moi$lr_pair, levels = unique(moi$lr_pair))
 ggplot(moi, aes(x = lr_pair, y = value, color = variable)) + 
