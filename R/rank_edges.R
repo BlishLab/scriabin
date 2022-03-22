@@ -55,6 +55,7 @@ IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
 #' When ligands is supplied, recepts must also be supplied and equidimensional.
 #' @param recepts Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
 #' When recepts is supplied, ligands must also be supplied and equidimensional.
+#' @param potential_ligands character vector of ligands to include in active ligand ranking.
 #' @param ... Additional arguments passed to IDPotentialLigands
 #'
 #' @return Returns a matrix where columns are cells, rows are potential ligands, and values are pearson coefficients corresponding to each ligand's predicted activity in that cell.
@@ -63,7 +64,7 @@ IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
 #' @export
 #'
 #' @examples
-RankActiveLigands <- function(seu, variant_genes, dq = 0.05,
+RankActiveLigands <- function(seu, variant_genes, dq = 0.05, potential_ligands = NULL,
                               species = "human", database = "OmniPath",
                               ligands = NULL, recepts = NULL, ...) {
   if(species %notin% c("human","mouse","rat") & database != "custom") {
@@ -80,18 +81,22 @@ RankActiveLigands <- function(seu, variant_genes, dq = 0.05,
   if(species != "human") {
     warning("Warning: NicheNet's ligand-target matrix is built only on human observations. Use caution when extrapolating the data in this database to non-human datasets\n")
     colnames(dsp) <- nichenetr::convert_mouse_to_human_symbols(colnames(dsp))
-    potential_ligands <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts, ...)
+    potl_ligs <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts, ...)
 
   }
   else {
-    potential_ligands <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts, ...)
+    potl_ligs <- IDPotentialLigands(seu, species = species, database = database, ligands = ligands, recepts = recepts, ...)
+  }
+  beg <- potl_ligs[[2]]
+  if(is.null(potential_ligands)) {
+    potential_ligands <- potl_ligs[[1]]
   }
   shared_targets <- intersect(rownames(ligand_target_matrix),colnames(dsp))
-  shared_targets <- shared_targets[shared_targets %in% potential_ligands[[2]]]
+  shared_targets <- shared_targets[shared_targets %in% beg]
   dsp <- t(dsp)[shared_targets,]
   ltm <- ligand_target_matrix[shared_targets,]
   message("Calculating active ligands")
-  preds <- cor(dsp,ltm[,colnames(ltm) %in% potential_ligands[[1]]])
+  preds <- cor(dsp,ltm[,colnames(ltm) %in% potential_ligands])
   preds[is.na(preds)] <- 0
   if(species != "human") {
     colnames(preds) <- nichenetr::convert_human_to_mouse_symbols(colnames(preds))
