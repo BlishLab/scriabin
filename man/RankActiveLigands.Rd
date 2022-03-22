@@ -8,6 +8,7 @@ RankActiveLigands(
   seu,
   variant_genes,
   dq = 0.05,
+  potential_ligands = NULL,
   species = "human",
   database = "OmniPath",
   ligands = NULL,
@@ -22,6 +23,8 @@ RankActiveLigands(
 Eg. for single datasets, this may simply be the dataset's HVGs. For a longitudinal dataset, these may be genes that change over time. Use \code{IDVariantGenes} to identify genes that vary across time, between groups, etc.}
 
 \item{dq}{numeric. Distance quantile. Genes that are further away than this quantile threshold will not be considered part of a cell's gene signature and not used for ligand activity prediction}
+
+\item{potential_ligands}{character vector of ligands to include in active ligand ranking.}
 
 \item{species}{character. Name of species from which to load ligand-receptor databases. One of: "human", "mouse", "rat". Default: "human"}
 
