@@ -311,7 +311,7 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
   #now return data
   #make a dataframe of module p values for each sample
   #merge this with a gene-wise modularity dataframe (remember to handle merged modules)
-  range01 <- function(x){(x-min(x))/(max(x)-min(x))}
+  range01 <- function(x){(x-min(x, na.rm = T))/(max(x, na.rm = T)-min(x, na.rm = T))}
   mod_df <- reshape2::melt(plyr::ldply(mod_list, rbind), id.var = ".id") %>%
     dplyr::select(-variable) %>% dplyr::filter(!is.na(value))
   colnames(mod_df) <- c("name","lr_pair")
