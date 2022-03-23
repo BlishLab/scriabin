@@ -198,7 +198,7 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL, sim_threshold = 0.1
     group.by = "mod_grouping"
   }
 
-  seu_split <- SplitObject(qseu, split.by = group.by)
+  seu_split <- SplitObject(seu, split.by = group.by)
   q_mods <- lapply(seu_split, function(x) {
     InteractionPrograms(object = x, return.mat = T)
   })
