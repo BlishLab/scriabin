@@ -282,17 +282,18 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
   mod_sign <- lapply(seq_along(1:length(m_cor_list)), function(x) {
     tmp_m_cor <- m_cor_list[[x]]
     tmp_mod_sign <- unlist(pblapply(seq_along(1:length(mod_list)), function(y) {
-      # random_distribution <- replicate(n.replicate, random_connectivity(m_cor = tmp_m_cor, mod = mod_list[[y]]))
-      # connectivity <- mean(tmp_m_cor[rownames(tmp_m_cor) %in% mod_list[[y]],
-      #                                colnames(tmp_m_cor) %in% mod_list[[y]]])
-      # sum(connectivity<random_distribution)/n.replicate
-      p <- replicate(n.replicate,random_connectivity_test(m_cor = tmp_m_cor, mod = mod_list[[y]]))
-      sum(p>0.05)/n.replicate
+      try({
+        p <- replicate(n.replicate,random_connectivity_test(m_cor = tmp_m_cor, mod = mod_list[[y]]))
+        return(sum(p>0.05)/n.replicate)
+      }, silent = T)
     }))
   })
 
   #are any modules non-significant across all samples? If so, remove.
   mod_sign_m <- t(do.call(rbind,mod_sign))
+  mod_sign_m[grepl("Error",mod_sign_m)] <- NA
+  mod_sign_m <- matrix(as.numeric(unlist(mod_sign_m)),nrow=nrow(mod_sign_m))
+
   rownames(mod_sign_m) <- names(mod_list)
   colnames(mod_sign_m) <- paste(sample_names,"pval",sep = "_")
   n_nonsig <- apply(mod_sign_m,1,function(x) {sum(x>0.05)})
