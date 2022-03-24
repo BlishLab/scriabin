@@ -1124,3 +1124,28 @@ CCIMFeaturePlot <- function(ccim, seu,
   FeaturePlot(ccim, features = features, ... )
 }
 
+
+#' Plot expression of interaction programs
+#'
+#' @param seu A seurat object that has interaction program expression information stored in the meta.data slot as the output of `ScoreInteractionPrograms`
+#' @param ip The name of the interaction program to plot
+#' @param cols Character vector of colors to use for plotting
+#' @param order Logical. Order points so highest expressers are on top?
+#'
+#' @return
+#' @import ggplot2
+#' @export
+#'
+#' @examples
+IPFeaturePlot <- function(seu, ip, cols = c("grey90","blue","orangered3"), order = T) {
+  p <- FeaturePlot(seu,
+              features = c(paste0("ligands_",ip),
+                           paste0("receptors_",ip)),
+              blend = T, combine = F,
+              cols = cols, order = order)
+  p[[3]] + NoLegend() + labs(x = NULL, y = NULL, title = NULL) +
+    theme(aspect.ratio = 1,axis.ticks = element_blank(),
+          axis.text = element_blank())
+}
+
+
