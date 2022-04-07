@@ -13,24 +13,22 @@ PerturbedBins <- function(seu, interaction_graphs = NULL) {
   nbin = length(unique(seu$bins))
   bin_combos <- expand.grid(1:nbin,1:nbin)
   bins <- unique(seu$bins)
-  bin_pvals <- pblapply(seq_along(1:(nbin*nbin)), function(x) {
-    sbin <- bins[bin_combos[x,1]]
-    rbin <- bins[bin_combos[x,2]]
+
+  bin_pvals <- pblapply(seq_along(1:nrow(bin_combos)), function(x) {
+    sbin <- as.character(bin_combos[x,1])
+    rbin <- as.character(bin_combos[x,2])
     scells <- colnames(seu)[seu$bins==sbin]
     rcells <- colnames(seu)[seu$bins==rbin]
 
-    bin_ig <- lapply(interaction_graphs, function(x) {
+    bin_ig <- reshape2::melt(lapply(interaction_graphs, function(x) {
       as.vector(x[rownames(x) %in% scells,colnames(x) %in% rcells])
-    })
-    bin_ig.df <- data.frame(name = unlist(lapply(seq_along(1:length(bin_ig)),
-                                                 function(x) {rep(names(bin_ig)[x],lapply(bin_ig,length)[[x]])})),
-                            score=unlist(bin_ig))
+    }))
 
-    res <- kruskal.test(score~name, data = bin_ig.df)
+    res <- kruskal.test(value~L1, data = bin_ig)
     return(c(res$p.value,
              res$statistic,
-             nrow(bin_ig.df),
-             sd(aggregate(bin_ig.df$score,by = list(bin_ig.df$name), FUN=mean)$x)))
+             nrow(bin_ig),
+             sd(aggregate(bin_ig$value,by = list(bin_ig$L1), FUN=mean)$x)))
   })
   return(bin_pvals)
 }
@@ -178,6 +176,34 @@ BinPostHoc <- function(seu, bin_pvals, interaction_graphs,
   return(sig_bin_combos)
 }
 
+#' Assign quality scores to each bin
+#'
+#' @param seu A binned Seurat object with bin identities in the "bin" column of meta.data
+#' @param celltype.calls Name of meta.data column containing the cell type labels to use for connectivity testing. Must be a finer (more granular) cell type label than used for coarse_cell_types in `BinDatasets`.
+#' @param split.by Meta.data column name indicating how data was split for interaction graph generation
+#'
+#' @return A named numeric vector of bin quality scores
+#' @import pbapply dplyr
+#' @export
+#'
+#' @examples
+ScoreBins <- function(seu, celltype.calls = NULL, split.by = NULL) {
+  bins <- as.character(unique(seu$bins))
+  scores <- unlist(pblapply(1:length(bins), function(x) {
+    meta <- seu@meta.data[seu$bins==bins[x],c(celltype.calls,"bins",split.by)]
+    colnames(meta) <- c("celltype","bins","split")
+    mp_total <- meta %>% dplyr::count(split)
+    mp_count <- meta %>% dplyr::count(split,celltype) %>%
+      group_by(split) %>% dplyr::slice(which.max(n))
+    n_unique <- length(unique(mp$celltype))
+    mp_count <- mp_count %>%
+      left_join(.,mp_total,by = "split") %>% dplyr::mutate(prop = n.x/n.y) %>%
+      pull(prop)
+    score <- (1-sd(mp_count))/n_unique
+  }))
+  names(scores) <- bins
+  return(scores)
+}
 
 
 
