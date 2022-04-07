@@ -308,7 +308,9 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
     #   stop("Terminated by user.")
     # }
   }
-
+  if(!is.null(sigtest_cell_types) & sigtest_cell_types %notin% colnames(seu@meta.data)) {
+    stop("sigtest_cell_types supplied but not found in meta.data slot of object")
+  }
   if(is.null(optim_k.unique)) {
     n <- length(unique(seu@meta.data[,split.by]))
     optim_k.unique = n*2/3
@@ -317,6 +319,9 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
 
   if(!is.null(coarse_cell_types)) {
     message("Binning with coarse cell types")
+    if(coarse_cell_types %notin% colnames(seu@meta.data)) {
+      stop("coarse_cell_types not present in meta.data slot of object")
+    }
     #check coarse cell IDs are present in all samples to be aligned
     ct_check <- as.data.frame(table(seu@meta.data[,split.by],seu@meta.data[,coarse_cell_types]))
     if(sum(ct_check$Freq==0)>0) {
