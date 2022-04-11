@@ -193,10 +193,10 @@ ScoreBins <- function(seu, celltype.calls = NULL, split.by = NULL) {
     meta <- seu@meta.data[seu$bins==bins[x],c(celltype.calls,"bins",split.by)]
     colnames(meta) <- c("celltype","bins","split")
     mp_total <- meta %>% dplyr::count(split)
-    mp_count <- meta %>% dplyr::count(split,celltype) %>%
-      group_by(split) %>% dplyr::slice(which.max(n))
-    n_unique <- length(unique(mp$celltype))
+    mp_count <- meta %>% dplyr::count(split,celltype)
+    n_unique <- length(unique(mp_count$celltype))
     mp_count <- mp_count %>%
+      group_by(split) %>% dplyr::slice(which.max(n)) %>%
       left_join(.,mp_total,by = "split") %>% dplyr::mutate(prop = n.x/n.y) %>%
       pull(prop)
     score <- (1-sd(mp_count))/n_unique
