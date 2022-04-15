@@ -17,7 +17,8 @@ GenerateCCIM(
   weighted = F,
   nichenet_results = NULL,
   pearson.cutoff = 0.075,
-  scale.factors = c(1.5, 3)
+  scale.factors = c(1.5, 3),
+  weight.method = "sum"
 )
 }
 \arguments{
@@ -51,6 +52,8 @@ When recepts is supplied, ligands must also be supplied and equidimensional.}
 \item{pearson.cutoff}{numeric. Threshold for determining which ligand activities are "active". Ligands below this threshold will be considered inactive and not used for weighting. Default: 0.075}
 
 \item{scale.factors}{numeric. Determines the magnitude of ligand and receptor expression values weighting by their predicted activities. Given scale factors of c(x,y), ligand-receptor pairs where the ligand's pearson = pearson.cutoff will be weighted by a factor of x, and the ligand with the highest pearson will be weighted by a factor of y. Default: c(1.5,3).}
+
+\item{weight.method}{One of "sum" or "product". Method to use for weighting CCIM by ligand activities. "Sum" sums receptor expression values with ligand activities passing the \code{pearson.cutoff} threshold. Thus, a zero value for receptor expression may still result in a positive value for the ligand-receptor pair mechanism. "Product" takes the product of the receptor expression value and the predicted ligand activities. A zero value in the receptor expression will always result in a zero value for that ligand-receptor pair.}
 }
 \value{
 Returns a Seurat object with assay "CCIM" where columns are cell-cell pairs and rows are ligand-receptor pairs. "Expression" values are the geometric mean expression value between each pair of sender and receiver cells. By default, names ligand-receptor pairs and cell-cell pairs are separated by "="

@@ -12,7 +12,7 @@ InteractionPrograms(
   database = "OmniPath",
   ligands = NULL,
   recepts = NULL,
-  iterate.threshold = 500,
+  iterate.threshold = 300,
   n.iterate = NULL,
   specific = F,
   ranked_genes = NULL,

@@ -19,6 +19,7 @@
 #' @param nichenet_results List or matrix. Predicted ligand activities using Scriabin's implementation of NicheNet in RankActiveLigands
 #' @param pearson.cutoff numeric. Threshold for determining which ligand activities are "active". Ligands below this threshold will be considered inactive and not used for weighting. Default: 0.075
 #' @param scale.factors numeric. Determines the magnitude of ligand and receptor expression values weighting by their predicted activities. Given scale factors of c(x,y), ligand-receptor pairs where the ligand's pearson = pearson.cutoff will be weighted by a factor of x, and the ligand with the highest pearson will be weighted by a factor of y. Default: c(1.5,3).
+#' @param weight.method One of "sum" or "product". Method to use for weighting CCIM by ligand activities. "Sum" sums receptor expression values with ligand activities passing the `pearson.cutoff` threshold. Thus, a zero value for receptor expression may still result in a positive value for the ligand-receptor pair mechanism. "Product" takes the product of the receptor expression value and the predicted ligand activities. A zero value in the receptor expression will always result in a zero value for that ligand-receptor pair.
 #'
 #' @return Returns a Seurat object with assay "CCIM" where columns are cell-cell pairs and rows are ligand-receptor pairs. "Expression" values are the geometric mean expression value between each pair of sender and receiver cells. By default, names ligand-receptor pairs and cell-cell pairs are separated by "="
 #' @import dplyr pbapply Matrix Seurat
@@ -33,7 +34,8 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
                          ligands = NULL, recepts = NULL,
                          senders = NULL, receivers = NULL,
                          weighted = F, nichenet_results = NULL,
-                         pearson.cutoff = 0.075, scale.factors = c(1.5,3)) {
+                         pearson.cutoff = 0.075, scale.factors = c(1.5,3),
+                         weight.method = "sum") {
   #code to connect with l-r databases adapted from Connectome (Raredon, et al.)
   if(database=="custom") {
     message("Using custom database")
@@ -122,7 +124,7 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
       nnm <- reshape2::melt(nichenet_results) %>% dplyr::filter(value>pearson.cutoff)
       colnames(nnm) <- c("cell","ligand","pearson")
     }
-    if(class(nichenet_results)=="matrix") {
+    if(class(nichenet_results)[[1]]=="matrix") {
       nichenet_results <- nichenet_results[,colnames(object)]
       nnm <- reshape2::melt(nichenet_results) %>% dplyr::filter(value>pearson.cutoff)
       colnames(nnm) <- c("ligand","cell","pearson")
@@ -137,31 +139,66 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
     }
     else {
       message(paste("Found active ligands to weight. Weighting with pearson cutoff ",pearson.cutoff))
-      nnm$weight_factor <- scales::rescale(nnm$pearson, scale.factors)
-      int.to.merge <- lit.put[,c(1,2,3)]
-      colnames(int.to.merge) <- c("pair","ligand","recepts")
-      nnm <- merge(nnm,int.to.merge,by = "ligand", all.x=T)
-      nnm <- nnm[!is.na(nnm$recepts),]
-      test2 <- reshape2::dcast(nnm, recepts~cell, value.var = "weight_factor", fun.aggregate = sum)
-      test3 <- merge(cell.exprs.rec[,1:2],test2,all.x = T) %>% arrange(id)
+      if(weight.method %notin% c("product","sum")) {
+        stop("weight.method must be one of product or sum")
+      }
+      if(weight.method=="product") {
+        message("Using product method to weight CCIM")
+        nnm$weight_factor <- scales::rescale(nnm$pearson, scale.factors)
+        int.to.merge <- lit.put[,c(1,2,3)]
+        colnames(int.to.merge) <- c("pair","ligand","recepts")
+        nnm <- merge(nnm,int.to.merge,by = "ligand", all.x=T)
+        nnm <- nnm[!is.na(nnm$recepts),]
+        test2 <- reshape2::dcast(nnm, recepts~cell, value.var = "weight_factor", fun.aggregate = sum)
+        test3 <- merge(cell.exprs.rec[,1:2],test2,all.x = T) %>% arrange(id)
 
-      cell.exprs.rec.m <- cell.exprs.rec[,3:ncol(cell.exprs.rec)]
-      weight.m <- as.matrix(test3[,3:ncol(test3)])
-      weight.m[weight.m==0] <- 1
-      weight.m[is.na(weight.m)] <- 1
-      cells.bind <- colnames(cell.exprs.rec.m)[colnames(cell.exprs.rec.m) %notin% colnames(weight.m)]
-      tobind <- matrix(1,nrow = nrow(weight.m),ncol = length(cells.bind))
-      colnames(tobind) <- cells.bind
-      weight.m <- cbind(weight.m,tobind)
-      weight.m <- weight.m[,match(colnames(cell.exprs.rec.m),colnames(weight.m))]
+        cell.exprs.rec.m <- cell.exprs.rec[,3:ncol(cell.exprs.rec)]
+        weight.m <- as.matrix(test3[,3:ncol(test3)])
+        weight.m[weight.m==0] <- 1
+        weight.m[is.na(weight.m)] <- 1
+        cells.bind <- colnames(cell.exprs.rec.m)[colnames(cell.exprs.rec.m) %notin% colnames(weight.m)]
+        tobind <- matrix(1,nrow = nrow(weight.m),ncol = length(cells.bind))
+        colnames(tobind) <- cells.bind
+        weight.m <- cbind(weight.m,tobind)
+        weight.m <- weight.m[,match(colnames(cell.exprs.rec.m),colnames(weight.m))]
 
-      final <- weight.m * as.matrix(cell.exprs.rec.m)
-      # weighted.rec <- cbind(cell.exprs.rec.m[,1:3],final)
+        final <- weight.m * as.matrix(cell.exprs.rec.m)
+        # weighted.rec <- cbind(cell.exprs.rec.m[,1:3],final)
 
-      a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
-      a[is.na(a)] <- 0
-      b <- as.matrix(final)
-      b[is.na(b)] <- 0
+        a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+        a[is.na(a)] <- 0
+        b <- as.matrix(final)
+        b[is.na(b)] <- 0
+      }
+      if(weight.method=="sum") {
+        message("Using sum method to weight CCIM")
+        nnm$weight_factor <- scales::rescale(nnm$pearson, scale.factors)
+        int.to.merge <- lit.put[,c(1,2,3)]
+        colnames(int.to.merge) <- c("pair","ligand","recepts")
+        nnm <- merge(nnm,int.to.merge,by = "ligand", all.x=T)
+        nnm <- nnm[!is.na(nnm$recepts),]
+        test2 <- reshape2::dcast(nnm, recepts~cell, value.var = "weight_factor", fun.aggregate = sum)
+        test3 <- merge(cell.exprs.rec[,1:2],test2,all.x = T) %>% arrange(id)
+
+        cell.exprs.rec.m <- cell.exprs.rec[,3:ncol(cell.exprs.rec)]
+        weight.m <- as.matrix(test3[,3:ncol(test3)])
+        # weight.m[weight.m==0] <- 1
+        weight.m[is.na(weight.m)] <- 0
+        cells.bind <- colnames(cell.exprs.rec.m)[colnames(cell.exprs.rec.m) %notin% colnames(weight.m)]
+        tobind <- matrix(0,nrow = nrow(weight.m),ncol = length(cells.bind))
+        colnames(tobind) <- cells.bind
+        weight.m <- cbind(weight.m,tobind)
+        weight.m <- weight.m[,match(colnames(cell.exprs.rec.m),colnames(weight.m))]
+
+        final <- weight.m + as.matrix(cell.exprs.rec.m)
+        # weighted.rec <- cbind(cell.exprs.rec.m[,1:3],final)
+
+        a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+        a[is.na(a)] <- 0
+        b <- as.matrix(final)
+        b[is.na(b)] <- 0
+      }
+
     }
   }
 
@@ -184,7 +221,9 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
 
   rownames(m) <- paste(cna,cnb,sep = "=")
   m <- m[,Matrix::colSums(m)>0]
-  return(CreateSeuratObject(counts = Matrix::t(m), assay = "CCIM"))
+  seu <- CreateSeuratObject(counts = Matrix::t(m), assay = "CCIM")
+  seu <- MapMetaData(ccim_seu = seu, seu = object)
+  return(seu)
 }
 
 
