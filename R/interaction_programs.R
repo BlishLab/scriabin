@@ -29,7 +29,7 @@
 InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                 species = "human", database = "OmniPath",
                                 ligands = NULL, recepts = NULL,
-                                iterate.threshold = 500, n.iterate = NULL,
+                                iterate.threshold = 300, n.iterate = NULL,
                                 specific = F, ranked_genes = NULL,
                                 return.mat = T, softPower = 1,
                                 min.size = 5, plot.mods = F,
