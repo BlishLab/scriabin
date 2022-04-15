@@ -200,7 +200,7 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL, sim_threshold = 0.1
 
   seu_split <- SplitObject(seu, split.by = group.by)
   q_mods <- lapply(seu_split, function(x) {
-    InteractionPrograms(object = x, return.mat = T)
+    InteractionPrograms(object = x, return.mat = T, ...)
   })
 
   mod_list <- unlist(lapply(q_mods,function(x){x[[3]]}), recursive = F)
