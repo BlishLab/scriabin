@@ -1149,3 +1149,134 @@ IPFeaturePlot <- function(seu, ip, cols = c("grey90","blue","orangered3"), order
 }
 
 
+#' Plot Alluvial of ligand-target links
+#'
+#' @param connectome
+#' @param optimize.flows
+#' @param colors
+#'
+#' @return
+#' @export
+#'
+#' @examples
+PlotAlluviumLT <- function(connectome, optimize.flows = T, colors = NULL) {
+  connectome_plot <- as.data.frame(connectome[,c("ligand","target","mean")])
+  colnames(connectome_plot) <- c("Ligand","Target","Weight")
+  connectome_lodes <- to_lodes_form(connectome_plot, axes = 1:2, id = "Cohort")
+  connectome_lodes$stratum <- as.character(connectome_lodes$stratum)
+
+  if(is.null(colors)) {
+    unique_genes <- unique(connectome_lodes$stratum)
+    gene_fill <- hue_pal()(length(unique_genes))
+    names(gene_fill) <- unique_genes
+  }
+  else {
+    gene_fill <- colors
+  }
+
+  if(optimize.flows) {
+    message("Preparing data for networkD3 . . . ")
+
+    ligand_to_receptor <- merge(connectome_lodes[connectome_lodes$x=="Ligand",c("Cohort","x","stratum")],
+                                connectome_lodes[connectome_lodes$x=="Target",c("Cohort","x","stratum")],
+                                by = "Cohort")
+    ligand_to_receptor$stratum.x <- paste(ligand_to_receptor$stratum.x,"ligand", sep = "_")
+    ligand_to_receptor$stratum.y <- paste(ligand_to_receptor$stratum.y,"target", sep = "_")
+
+    links <- rbind(data.frame(source=ligand_to_receptor$stratum.x,
+                              target=ligand_to_receptor$stratum.y,value=1))
+
+    node.list <- unique(c(links$source,links$target))
+    nodes <- data.frame(node = 1:length(unique(node.list)), name = unique(node.list))
+    nodes$node <- nodes$node-1
+
+    links$source <- as.numeric(mapvalues(links$source, from = nodes$name, to = nodes$node, warn_missing = F))
+    links$target <- as.numeric(mapvalues(links$target, from = nodes$name, to = nodes$node, warn_missing = F))
+
+    p1 <- sankeyNetwork(Links = links, Nodes = nodes,
+                        Source = "source", Target = "target",
+                        Value = "value", NodeID = "name",
+                        fontSize = 12, nodeWidth = 30)
+
+    customJS <- 'function() { console.log(this.sankey.nodes().map(d => [d.name, d.x, d.y])); }'
+    p2 <- htmlwidgets::onRender(p1, customJS)
+    saveNetwork(p2, "~/Downloads/sankey_networkD3.html")
+    browseURL('file:///Users/aaronwilk/Downloads/sankey_networkD3.html')
+
+    message("Please browse the code for the opened Sankey diagram (control-command-C)
+            Navigate to the console tab and copy the contents of this tab
+            Type 'yes' below when this has been completed.\n
+            If you are prompted more than once, try copying again, you probably copied without the line breaks")
+
+    status <- "no"
+    while(status!="yes") {
+      status <- readline(prompt = "Have node positions been copied?: ")
+      nodePositions <- read_clip_tbl()
+      nodePositions <- data.frame(x=nodePositions[!grepl("^\\[",nodePositions[,1]),])
+      status <- ifelse(nrow(nodePositions)>1,"yes","no")
+    }
+
+    # nodePositions <- read.csv("~/Downloads/nodePositions.csv")
+
+    colnames(nodePositions) <- "x_axis"
+    nodePositions$x_axis <- sub("\\].*", "", sub(".*\\[", "", nodePositions$x_axis))
+
+    nodePositions <- as.data.frame(t(as.data.frame(str_split(nodePositions$x_axis,","))))
+    rownames(nodePositions) <- NULL
+    colnames(nodePositions) <- c("stratum_full","x_axis","y")
+
+    nodePositions <- nodePositions[1:(nrow(nodePositions)-1),]
+    trim.leading <- function (x)  sub("^\\s+", "", x)
+
+    nodePositions$x_axis <- as.numeric(trim.leading(nodePositions$x_axis))
+    nodePositions$y <- as.numeric(trim.leading(nodePositions$y))
+    nodePositions$stratum_full <- gsub("'","",nodePositions$stratum_full)
+
+    nodePositions$x_axis <- scales::rescale(nodePositions$x_axis, newrange = c(0,10*max(nodePositions$y)))
+    nodePositions$num_rank <- nodePositions$x_axis+nodePositions$y
+
+    nodePositions %<>%
+      mutate(rank = order(order(num_rank, decreasing = F)))
+    new.levels <- nodePositions %>% arrange(num_rank) %>% pull(stratum_full)
+
+    connectome_lodes_merge <- connectome_lodes
+    connectome_lodes_merge$stratum <- ifelse(connectome_lodes_merge$x=="Ligand",
+                                             paste(connectome_lodes_merge$stratum,"ligand",sep = "_"),
+                                             connectome_lodes_merge$stratum)
+    connectome_lodes_merge$stratum <- ifelse(connectome_lodes_merge$x=="Target",
+                                             paste(connectome_lodes_merge$stratum,"target",sep = "_"),
+                                             connectome_lodes_merge$stratum)
+
+    connectome_lodes_merge$stratum <- factor(connectome_lodes_merge$stratum, levels = new.levels)
+
+    ligand_fill <- gene_fill
+    names(ligand_fill) <- paste(names(ligand_fill),"ligand", sep = "_")
+    target_fill <- gene_fill
+    names(target_fill) <- paste(names(target_fill),"target", sep = "_")
+
+    ggplot(connectome_lodes_merge, aes(x = x, stratum = stratum, alluvium = Cohort,
+                                       y = Weight, label = stratum)) +
+      geom_flow(lode.guidance = "frontback",color = "darkgray",cement.alluvia = T) +
+      stat_stratum(aes(fill = stratum), width = 1/3) + scale_fill_manual(values = c(ligand_fill,
+                                                                                    target_fill)) +
+      ggfittext::geom_fit_text(aes(label = ifelse(as.numeric(x) %in% c(1,2), sub("_[^_]+$", "", stratum), NA)),
+                               stat = "stratum", width = 1/3, min.size = 3) +
+      theme_cowplot() +
+      theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) + labs(x = NULL) + NoLegend()
+
+  }
+
+  else {
+    ggplot(connectome_lodes, aes(x = x, stratum = stratum, alluvium = Cohort,
+                                 y = Weight, label = stratum)) +
+      geom_flow(lode.guidance = "frontback",color = "darkgray",cement.alluvia = T) +
+      stat_stratum(aes(fill = stratum), width = 1/3) + scale_fill_manual(values = c(gene_fill)) +
+      ggfittext::geom_fit_text(aes(label = ifelse(as.numeric(x) %in% c(1,2), as.character(stratum), NA)),
+                               stat = "stratum", width = 1/3, min.size = 3) +
+      theme_cowplot() +
+      theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) + labs(x = NULL) + NoLegend()
+  }
+
+}
+
+

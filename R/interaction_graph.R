@@ -115,7 +115,7 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
       stop("NicheNet results must be supplied as one of list or matrix")
     }
     if(class(nichenet_results)=="list") {
-      nichenet_results <- nichenet_results[names(nichenet_results) %in% colnames(object)]
+      nichenet_results <- nichenet_results[names(nichenet_results) %in% receivers]
       nichenet_results <- bind_rows(lapply(nichenet_results, FUN = function(x) {
         results <- x[[1]] %>% pull(pearson)
         names(results) <- x[[1]] %>% pull(test_ligand)
@@ -125,7 +125,7 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
       colnames(nnm) <- c("cell","ligand","pearson")
     }
     if(class(nichenet_results)[[1]]=="matrix") {
-      nichenet_results <- nichenet_results[,colnames(object)]
+      nichenet_results <- nichenet_results[,receivers]
       nnm <- reshape2::melt(nichenet_results) %>% dplyr::filter(value>pearson.cutoff)
       colnames(nnm) <- c("ligand","cell","pearson")
     }
