@@ -43,7 +43,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     recepts <- recepts
     lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
   }
-  if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
+  else if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
     stop("To use custom ligand or receptor lists, set database = 'custom'")
   }
   else {
