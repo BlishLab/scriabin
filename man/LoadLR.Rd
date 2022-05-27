@@ -8,7 +8,8 @@ LoadLR(
   species = "human",
   database = "OmniPath",
   ligands = NULL,
-  recepts = NULL
+  recepts = NULL,
+  lit_support = 7
 )
 }
 \arguments{
@@ -24,6 +25,8 @@ When ligands is supplied, recepts must also be supplied and equidimensional.}
 
 \item{recepts}{Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
 When recepts is supplied, ligands must also be supplied and equidimensional.}
+
+\item{lit_support}{Numeric. Only entries with curation_effort (number of unique database - citation pairs per interaction) greater than or equal to this value are retained. Default 7.}
 }
 \value{
 Returns a dataframe containing gene symbols for ligand and receptor pairs. Column "pair" contains underscore-separated ligand-receptor pairs. Ligand and receptor gene names are stored in "source_genesymbol" and "target_genesymbol", respectively.
