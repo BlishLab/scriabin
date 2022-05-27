@@ -12,6 +12,7 @@
 #' When ligands is supplied, recepts must also be supplied and equidimensional.
 #' @param recepts Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
 #' When recepts is supplied, ligands must also be supplied and equidimensional.
+#' @param lit_support Numeric. Only entries with curation_effort (number of unique database - citation pairs per interaction) greater than or equal to this value are retained. Default 7.
 #'
 #' @return Returns a dataframe containing gene symbols for ligand and receptor pairs. Column "pair" contains underscore-separated ligand-receptor pairs. Ligand and receptor gene names are stored in "source_genesymbol" and "target_genesymbol", respectively.
 #' @import dplyr
@@ -19,7 +20,7 @@
 #' @export
 #'
 #' @examples
-LoadLR <- function(species = "human", database = "OmniPath", ligands = NULL, recepts = NULL) {
+LoadLR <- function(species = "human", database = "OmniPath", ligands = NULL, recepts = NULL, lit_support = 7) {
   if(database=="custom") {
     message("Using custom database")
     ligands <- ligands
@@ -35,7 +36,8 @@ LoadLR <- function(species = "human", database = "OmniPath", ligands = NULL, rec
       stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB\nFor rat or mouse, only OmniPath is supported")
     }
     message(paste("Using database",database))
-    pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
+    pairs <- all[[database]] %>% dplyr::filter(curation_effort>=lit_support) %>%
+      dplyr::select(source_genesymbol,target_genesymbol) %>% mutate_all(as.character) %>% as.data.frame()
     lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
     lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
   }
