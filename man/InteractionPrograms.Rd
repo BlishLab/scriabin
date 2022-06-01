@@ -17,7 +17,7 @@ InteractionPrograms(
   specific = F,
   ranked_genes = NULL,
   return.mat = T,
-  softPower = 1,
+  softPower = NULL,
   min.size = 5,
   plot.mods = F,
   tree.cut.quantile = 0.4

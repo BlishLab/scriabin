@@ -38,24 +38,21 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
                          weight.method = "sum") {
   #code to connect with l-r databases adapted from Connectome (Raredon, et al.)
   if(database=="custom") {
+    if(is.null(ligands) | is.null(recepts)) {
+      stop("To use custom database, please supply equidimensional character vectors of ligands and recepts")
+    }
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
     lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
-  }
-  else {
-    # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
-    # if(database %notin% names(all)) {
-    #   stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
-    # }
-    # message(paste("Using database",database))
-    # pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    # lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
-    # lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
-    lit.put <- LoadLR(species = species, database = database)
+  } else if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
+    stop("To use custom ligand or receptor lists, set database = 'custom'")
+  } else {
+    lit.put <- scriabin::LoadLR(species = species, database = database)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }
+
   ligands.use <- intersect(ligands, rownames(object@assays[[assay]]))
   recepts.use <- intersect(recepts, rownames(object@assays[[assay]]))
   genes.use = union(ligands.use, recepts.use)
@@ -294,21 +291,17 @@ BuildPriorInteraction <- function (object, assay = "SCT", slot = "data",
                                    specific = F, ranked_genes = NULL,
                                    correct.depth = T, graph_name = "prior_interaction") {
   if(database=="custom") {
+    if(is.null(ligands) | is.null(recepts)) {
+      stop("To use custom database, please supply equidimensional character vectors of ligands and recepts")
+    }
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
     lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
-  }
-  else {
-    # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
-    # if(database %notin% names(all)) {
-    #   stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
-    # }
-    # message(paste("Using database",database))
-    # pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    # lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
-    # lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
-    lit.put <- LoadLR(species = species, database = database)
+  } else if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
+    stop("To use custom ligand or receptor lists, set database = 'custom'")
+  } else {
+    lit.put <- scriabin::LoadLR(species = species, database = database)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }
@@ -421,21 +414,17 @@ BuildWeightedInteraction <- function (object, nichenet_results, assay = "SCT", s
                                       ligands = NULL, recepts = NULL,
                                       correct.depth = T, graph_name = "weighted_interaction") {
   if(database=="custom") {
+    if(is.null(ligands) | is.null(recepts)) {
+      stop("To use custom database, please supply equidimensional character vectors of ligands and recepts")
+    }
     message("Using custom database")
     ligands <- ligands
     recepts <- recepts
     lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
-  }
-  else {
-    # all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
-    # if(database %notin% names(all)) {
-    #   stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB")
-    # }
-    # message(paste("Using database",database))
-    # pairs <- as.data.frame(all[[database]][,c("source_genesymbol","target_genesymbol")] %>% mutate_all(as.character))
-    # lit.put <- pairs %>% dplyr::mutate(pair = paste(source_genesymbol,target_genesymbol, sep = "_"))
-    # lit.put <- as.data.frame(lit.put[,c("pair","source_genesymbol","target_genesymbol")])
-    lit.put <- LoadLR(species = species, database = database)
+  } else if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
+    stop("To use custom ligand or receptor lists, set database = 'custom'")
+  } else {
+    lit.put <- scriabin::LoadLR(species = species, database = database)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }

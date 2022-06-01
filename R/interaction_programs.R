@@ -31,7 +31,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                 ligands = NULL, recepts = NULL,
                                 iterate.threshold = 300, n.iterate = NULL,
                                 specific = F, ranked_genes = NULL,
-                                return.mat = T, softPower = 1,
+                                return.mat = T, softPower = NULL,
                                 min.size = 5, plot.mods = F,
                                 tree.cut.quantile = 0.4) {
   if(database=="custom") {
@@ -42,11 +42,9 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     ligands <- ligands
     recepts <- recepts
     lit.put <- data.frame(pair.name = paste(ligands,recepts,sep="_"), source_genesymbol = ligands, target_genesymbol = recepts)
-  }
-  if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
+  } else if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
     stop("To use custom ligand or receptor lists, set database = 'custom'")
-  }
-  else {
+  } else {
     lit.put <- scriabin::LoadLR(species = species, database = database)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
@@ -142,6 +140,16 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     m_cor <- 0.5+(0.5*corSparse(m))
   }
 
+  if(is.null(softPower)) {
+    message("Automatically selecting softPower . . .")
+    sp_det <- pickSoftThreshold.fromSimilarity(m_cor, RsquaredCut = 0.3)
+    softPower = sp_det$powerEstimate
+    if(is.na(softPower) | softPower>3) {
+      warning("No appropriate softPower found to reach minimum scale free topology fit. Proceeding without soft thresholding, interpret results with caution")
+      softPower = 1
+    }
+  }
+
   message("Identifying modules")
   adj <- m_cor^softPower
   tom <- TOMsimilarity(adj, TOMType = "signed")
@@ -211,34 +219,37 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL, sim_threshold = 0.1
 
   #Merge similar modules
   message("Merging similar modules")
-  lrsum <- matrix(ncol = length(names(mod_list)), nrow = length(unique(unlist(mod_list))))
+
+  lrsum <- t(do.call(rbind,lapply(1:length(names(mod_list)), function(x) {
+    unique(unlist(mod_list)) %in% mod_list[[x]]
+  })))
+  lrsum[lrsum==T] <- 1
   colnames(lrsum) <- names(mod_list)
   rownames(lrsum) <- unique(unlist(mod_list))
 
-  for (i in 1:nrow(lrsum)){
-    for (k in colnames(lrsum)) {
-      lrsum[i,k] <- ifelse(rownames(lrsum)[i] %in% mod_list[[k]],1,0)
-    }
-  }
-
   d <- as.matrix(dist.binary(t(lrsum), method = 1))
   d <- 1-d^2
-  tomerge <- which(d>sim_threshold&d<1)
-  partners <- unique(bind_rows(lapply(seq_along(1:length(tomerge)), function(x) {
-    k <- arrayInd(tomerge[x],dim(d))
-    y <- sort(c(rownames(d)[k[,1]],colnames(d)[k[,2]]))
-    data.frame(a = y[1], b = y[2], ind = d[d>sim_threshold&d<1][x])
-  }))) %>% arrange(-ind)
-  partners <- partners[!(duplicated(partners$a)),]
-  partners <- partners[!(duplicated(partners$b)),]
-  for (i in 1:nrow(partners)) {
-    mod_list[[length(mod_list)+1]] <- unique(c(mod_list[[partners[i,"a"]]],
-                                               mod_list[[partners[i,"b"]]]))
-    mod_list[partners[i,"a"]] <- NULL
-    mod_list[partners[i,"b"]] <- NULL
-    names(mod_list)[length(mod_list)] <- paste(partners[i,"a"],partners[i,"b"],sep = "=")
-  }
 
+  merge_num = 1
+  while(max(d[d<1])>sim_threshold) {
+    tomerge <- rownames(which(d==max(d[d<1]), arr.ind = T))
+    new_mod <- unique(unlist(mod_list[tomerge]))
+    mod_list <- mod_list[names(mod_list) %notin% tomerge]
+    mod_list[[length(mod_list)+1]] <- new_mod
+    names(mod_list)[length(mod_list)] <- paste0("merge_",merge_num)
+    merge_num = merge_num+1
+
+    lrsum <- t(do.call(rbind,lapply(1:length(names(mod_list)), function(x) {
+      unique(unlist(mod_list)) %in% mod_list[[x]]
+    })))
+    lrsum[lrsum==T] <- 1
+    colnames(lrsum) <- names(mod_list)
+    rownames(lrsum) <- unique(unlist(mod_list))
+
+    d <- as.matrix(dist.binary(t(lrsum), method = 1))
+    d <- 1-d^2
+  }
+  names(mod_list) <- paste0("IP_",1:length(mod_list))
   return(list(cor_mat = m_cor_list, tom = tom_list, modules = mod_list, connectivity = con_list))
 }
 
@@ -275,9 +286,9 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
   message("Testing module significance")
   random_connectivity_test <- function(m_cor=m_cor,mod=mod) {
     vars <- sample(colnames(m_cor),length(mod))
-    a <- as.vector(m_cor[mod,mod])
+    a <- as.vector(m_cor[rownames(m_cor) %in% mod, colnames(m_cor) %in% mod])
     b <- as.vector(m_cor[vars,vars])
-    return(wilcox.test(a,b,alternative = "greater")$p.value)
+    return(wilcox.test(a,b,alternative = "greater",exact = F)$p.value)
   }
   mod_sign <- lapply(seq_along(1:length(m_cor_list)), function(x) {
     tmp_m_cor <- m_cor_list[[x]]
@@ -291,7 +302,7 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
 
   #are any modules non-significant across all samples? If so, remove.
   mod_sign_m <- t(do.call(rbind,mod_sign))
-  mod_sign_m[grepl("Error",mod_sign_m)] <- NA
+  mod_sign_m[grepl("Error",mod_sign_m)] <- 1
   mod_sign_m <- matrix(as.numeric(unlist(mod_sign_m)),nrow=nrow(mod_sign_m))
 
   rownames(mod_sign_m) <- names(mod_list)
@@ -320,7 +331,7 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
   #   dplyr::mutate(name = gsub('[[:digit:]]+', '', name))
   mod_df <- merge(mod_df, as.data.frame(mod_sign_m) %>%
                     rownames_to_column(var = "name"), by = "name", all.y = F)
-  con_sum <- lapply(1:length(m_cor_list), function(x) {
+  con_sum <- as.matrix(lapply(1:length(m_cor_list), function(x) {
     y <- as.data.frame(con_list[[x]]) %>%
       rownames_to_column(var = "lr_pair") %>% dplyr::select(lr_pair,kTotal)
     colnames(y) <- c("lr_pair",
@@ -329,7 +340,9 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
     return(y)
   }) %>% purrr::reduce(full_join, by = "lr_pair") %>%
     column_to_rownames(var = "lr_pair") %>%
-    mutate_all(range01) %>% rownames_to_column(var = "lr_pair")
+    mutate_all(range01))
+  con_sum[is.na(con_sum)] <- 0
+  con_sum <- con_sum %>% as.data.frame() %>% rownames_to_column("lr_pair")
   mod_df <- merge(mod_df, con_sum, by = "lr_pair", all.y = F) %>%
     arrange(name)
   return(mod_df)
