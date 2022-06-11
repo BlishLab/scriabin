@@ -85,7 +85,7 @@ IDPotentialLigands <- function(seu, assay = "SCT", slot = "data", min.pct = 0.02
   receptors = lr_network %>% pull(target_genesymbol) %>% unique()
   expressed_ligands = intersect(ligands,expressed_genes)
   expressed_receptors = intersect(receptors,expressed_genes)
-  potential_ligands = lr_network %>% dplyr::filter(source_genesymbol %in% expressed_ligands & target_genesymbol %in% expressed_receptors) %>% pull(source_genesymbol) %>% unique()
+  potential_ligands = lr_network %>% dplyr::filter(source_genesymbol %in% expressed_ligands) %>% pull(source_genesymbol) %>% unique()
   potential_ligands <- potential_ligands[!is.na(potential_ligands)]
   potential_ligands <- potential_ligands[potential_ligands %in% colnames(ligand_target_matrix)]
   background_expressed_genes <- background_expressed_genes[!is.na(background_expressed_genes)]
