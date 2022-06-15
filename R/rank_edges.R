@@ -180,10 +180,10 @@ RankLigandTargets <- function(seu, signature_matrix, potential_ligands = NULL,
     tm[dsp==0] <- 0
     colnames(tm) <- colnames(dsp)
     rownames(tm) <- rownames(dsp)
+    if(species != "human") {
+      rownames(tm) <- nichenetr::convert_human_to_mouse_symbols(rownames(tm))
+    }
     return(tm)
   })
-  if(species != "human") {
-    rownames(tm) <- nichenetr::convert_human_to_mouse_symbols(rownames(tm))
-  }
-  return(tm)
+  return(ltl)
 }
