@@ -80,10 +80,12 @@ PrioritizeLigands <- function(seu, gene_rankings = NULL, min.pct = 0.025, assay 
 #' @export
 #'
 #' @examples
-AssembleInteractionGraphs <- function(seu, by = "weighted", split.by = "time.orig") {
+AssembleInteractionGraphs <- function(seu, by = "weighted", split.by = "time.orig", nichenet_results = NULL, ...) {
   seu_split <- SplitObject(seu, split.by = split.by)
   if(by=="weighted") {
-    seu_split <- pblapply(seu_split, BuildWeightedInteraction)
+    seu_split <- pblapply(seu_split, function(x) {
+      BuildWeightedInteraction(x, nichenet_results, ...)
+     })
     interaction_graphs <- pblapply(seu_split, function(x) {
       p <- as.matrix(x@graphs$weighted_interaction)
       merge_ids <- seu$bins
@@ -100,7 +102,9 @@ AssembleInteractionGraphs <- function(seu, by = "weighted", split.by = "time.ori
     })
   }
   if(by=="prior") {
-    seu_split <- pblapply(seu_split, BuildPriorInteraction)
+    seu_split <- pblapply(seu_split, function(x) {
+      BuildPriorInteraction(x, ...)
+    })
     interaction_graphs <- pblapply(seu_split, function(x) {
       p <- as.matrix(x@graphs$prior_interaction)
       merge_ids <- seu$bins
