@@ -805,10 +805,10 @@ BuildGranHeatmap <- function(interaction_graphs, seu, name = "var_results",
   colnames(nbct) <- c("celltype","nb","freq")
   nbct.f <- nbct %>% group_by(nb) %>% top_n(1,freq) %>% sample_n(1)
 
-  row.colors <- pal_igv()(length(unique(row_grp)))
+  row.colors <- pal_d3()(length(unique(row_grp)))
   names(row.colors) <- unique(row_grp)
 
-  col.colors <- pal_igv()(length(unique(col_grp)))
+  col.colors <- pal_d3()(length(unique(col_grp)))
   names(col.colors) <- unique(col_grp)
 
   rowanno <- nbct.f[match(rownames(var_results),as.character(nbct.f$nb)),]
