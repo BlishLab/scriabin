@@ -20,6 +20,9 @@
 #' @param min.size Minimum size of each interaction program
 #' @param plot.mods Plot modules and associated dendrograms during analysis
 #' @param tree.cut.quantile The dendrogram tree height quantile at which the dendrogram should be cut. Higher values lead to fewer, smaller modules.
+#' @param iterate.threshold When a dataset has more cells than `iterate.threshold`, the TOM will be approximated iteratively. For each iteration, a randomly subsampled dataset of size `iterate.threshold` will be used to construct the CCIM and generate the TOM.
+#' @param n.iterate For datasets larger than `iterate.threshold`, determines how many iterations to perform to approximate the TOM.
+#' @param threads To enable WGCNA multi-threading, specify the number of threads to allow. This parameter may be required when running on multiple cores
 #'
 #' @return When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
 #' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2 pbapply
@@ -33,7 +36,8 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                 specific = F, ranked_genes = NULL,
                                 return.mat = T, softPower = NULL,
                                 min.size = 5, plot.mods = F,
-                                tree.cut.quantile = 0.4) {
+                                tree.cut.quantile = 0.4,
+                                threads = NULL) {
   if(database=="custom") {
     if(is.null(ligands) | is.null(recepts)) {
       stop("To use custom database, please supply equidimensional character vectors of ligands and recepts")
@@ -139,7 +143,9 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     m <- m[,Matrix::colSums(m)>0]
     m_cor <- 0.5+(0.5*corSparse(m))
   }
-
+  if(!is.null(threads)) {
+    enableWGCNAThreads(nThreads = threads)
+  }
   if(is.null(softPower)) {
     message("Automatically selecting softPower . . .")
     sp_det <- pickSoftThreshold.fromSimilarity(m_cor, RsquaredCut = 0.3)

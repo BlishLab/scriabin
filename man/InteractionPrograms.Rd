@@ -20,7 +20,8 @@ InteractionPrograms(
   softPower = NULL,
   min.size = 5,
   plot.mods = F,
-  tree.cut.quantile = 0.4
+  tree.cut.quantile = 0.4,
+  threads = NULL
 )
 }
 \arguments{
@@ -43,6 +44,10 @@ When ligands is supplied, recepts must also be supplied and equidimensional.}
 \item{recepts}{Character vector of custom receptors to use for interaction graph generation. Ignored unless database = "custom"
 When recepts is supplied, ligands must also be supplied and equidimensional.}
 
+\item{iterate.threshold}{When a dataset has more cells than \code{iterate.threshold}, the TOM will be approximated iteratively. For each iteration, a randomly subsampled dataset of size \code{iterate.threshold} will be used to construct the CCIM and generate the TOM.}
+
+\item{n.iterate}{For datasets larger than \code{iterate.threshold}, determines how many iterations to perform to approximate the TOM.}
+
 \item{specific}{logical. When TRUE, consider only the genes in each cell's predefined gene signature (see crGeneSig) as expressed. Default FALSE}
 
 \item{ranked_genes}{Cell-resolved gene signatures, used only when specific = T}
@@ -56,6 +61,8 @@ When recepts is supplied, ligands must also be supplied and equidimensional.}
 \item{plot.mods}{Plot modules and associated dendrograms during analysis}
 
 \item{tree.cut.quantile}{The dendrogram tree height quantile at which the dendrogram should be cut. Higher values lead to fewer, smaller modules.}
+
+\item{threads}{To enable WGCNA multi-threading, specify the number of threads to allow. This parameter may be required when running on multiple cores}
 }
 \value{
 When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
