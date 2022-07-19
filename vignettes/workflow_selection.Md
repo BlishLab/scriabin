@@ -4,7 +4,7 @@
 
 The graphic below assists users in selecting an appropriate workflow for Scriabin
 
-<br><br> ![](vignettes/workflow_selection.png) <br><br>
+<br><br> ![](https://github.com/BlishLab/scriabin/vignettes/workflow_selection.png) <br><br>
 
 The first step in selecting a workflow is considering the magnitude of the dataset being analyzed -- or more, specifically, what number of cell-cell pairs would be generated during the CCIM workflow? Because the CCIM scales exponentially with dataset size, it is frequently impractical to generate a CCIM for an entire dataset. For instance, a sample with 1,000 cells would generate a CCIM with 1 million observations. Determining what dataset size is too big for the CCIM depends both on the magnitude of interaction between each pair of cells, as well as the computational resources available to the user. We generally find that CCIM with a total cell-cell pair count of <500,000 are easily amenable to analysis locally. 
 
