@@ -1280,3 +1280,28 @@ PlotAlluviumLT <- function(connectome, optimize.flows = T, colors = NULL) {
 }
 
 
+
+#' Plot Pearson distributions for ligand activities
+#'
+#' @param ligand_activities the matrix output of `RankActiveLigands`
+#' @param pearson_cutoff determines where to draw a vertical line illustrating the chosen Pearson threshold cutoff (default: 0.075)
+#'
+#' @return Two plots of all Pearson coefficients (left) and median Pearson coefficient per cell (right)
+#' @export
+#'
+#' @examples
+PearsonDist <- function(ligand_activities, pearson_cutoff = 0.075) {
+  ral_df <- data.frame(x = as.vector(ligand_activities))
+  minx <- min(ral_df$x)
+  maxx <- max(ral_df$x)
+  p1 <- ggplot(ral_df, aes(x = x)) + geom_density(fill = "steelblue") + theme_cowplot() +
+    labs(x = "Pearson coefficient", y = "Density", title = "All Pearson coefficients") +
+    xlim(c(minx,maxx)) + geom_vline(xintercept = pearson_cutoff) +
+    theme(plot.title = element_text(hjust = 0.5), aspect.ratio = 1)
+  ral_df <- data.frame(x = as.vector(apply(ligand_activities,2,median)))
+  p2 <- ggplot(ral_df, aes(x = x)) + geom_density(fill = "steelblue") + theme_cowplot() +
+    labs(x = "Pearson coefficient", y = "Density", title = "Median Pearson coefficient\nper cell") +
+    xlim(c(minx,maxx)) + geom_vline(xintercept = pearson_cutoff) +
+    theme(plot.title = element_text(hjust = 0.5), aspect.ratio = 1)
+  p1|p2
+}

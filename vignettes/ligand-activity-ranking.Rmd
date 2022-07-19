@@ -1,0 +1,124 @@
+---
+title: "Scriabin's Ligand Activity Ranking Workflow"
+author: "Aaron J. Wilk"
+date: "2022-07-28"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ligand-activity-ranking}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Scriabin's Ligand Activity Ranking Workflow #
+
+To identify biologically-meaningful edges, or communication edges that are predicted to result in observed downstream gene expression changes in a receiver cell, Scriabin provides an implementation of NicheNet (Browaeys, et al. Nature Methods, 2020). 
+
+The steps in this workflow are as follows: 
+  1) Identify variable genes across an axis of interest
+  2) Generate a per-cell gene signature of these variable genes using CelliD (Cortal, et al. Nature Biotechnology, 2021).
+  3) Predict ligand activities based on this gene signature
+  
+This vignette will focus on: 
+  A) How do we select appropriate parameters for the ligand activity ranking workflow?
+  B) How do we select variable genes to use for gene signature generation?
+  C) How do we implement Scriabin's ligand activity ranking workflow?
+  
+
+## (A) Selecting appropriate parameters ##
+
+User-defined parameters for ligand activity ranking include: 
+  1) the minimum percentage of cells expressing a ligand for that ligand to be considered expressed (% expressed ligands) – this parameter defines which ligands will be considered in Scriabin’s implementation of NicheNet to identify biologically-active ligands, 
+  2) the number of variable genes to generate the MCA embedding for calculating a cell’s gene signature – this parameter reflects what genes define variation in cell state that will be captured in ligand activity ranking, 
+  3) the distance quantile within the MCA biplot to define a cell’s gene signature – this parameter defines how many genes will be used as target genes to predict ligand activities, 
+  4) the Pearson cutoff to define an active ligand – this parameter represents the threshold of ligand activity above which the ligand will be considered biologically-active, and 
+  5) the method for weighting the CCIM for ligand activities – this parameter determines if predicted ligand activities are considered as equally valid evidence of an interaction as expression of a cognate receptor. 
+
+To quantitatively evaluate the impact of these parameters, we leveraged data from our in vitro NK-B cell co-culture system as a heuristic (see Figure 2 in our manuscript). In this experiment, we introduced CD40L-CD40 as an additional ligand-receptor pair edge between NK cells and B cells–thus, we evaluated which combination of parameters resulted in the most specific prediction of the CD40L-CD40 edge as differential between transfected vs. untransfected cell-cell pairs. Specifically, we applied the CCIM workflow with ligand activity ranking followed by differential expression testing using an ROC test between cells from the CD40L-CD40 transfected condition and cells from the GFP-GFP transfected condition. We define the predictive power for each ligand-receptor pair as p=AUC-0.5*2, and the relative predictive power for CD40L-CD40 as the difference between pCD40L-CD40 and the average p for all other ligand-receptor pairs. 
+
+We found that ligand activity ranking with every combination of parameters improved the relative log(fold-change) of predicting CD40L-CD40 as a differential ligand-receptor edge (Supplementary Figure 11A-C). Using multiple regression to identify the relative impacts of each parameter on relative predictive power, we found that a lower Pearson cutoff, a higher % expressed ligands, and the use of the “sum” weighting method resulted in a higher relative prediction power. We hypothesize these trends are due to the relatively high expression of CD40LG in this dataset–a higher % expressed ligands prevents more lowly expressed ligands from being considered, and the “sum” weighting method allows cells with low CD40 expression to be included in the weighting. The distance quantile and number of variable genes for cell signature calculation had little impact on the power to specifically identify CD40L-CD40 as a differential edge. Using this dataset with known ground-truth for differential CCC, we demonstrate that ligand activity ranking is relatively stable to parameter selection. 
+
+
+![Supplementary Figure 11](vignettes/fig_s11_ral.png)
+
+
+These results lead us to make the following recommendations for appropriate selection of these parameters: 
+
+  1) The minimum percentage of cells expressing a ligand for that ligand to be considered expressed (default: 2.5%). We encourage users to select this parameter based on biological intuition as well as which sequencing platform was used. When ranking ligands across multiple cell types, users should set this value lower than the proportion of the rarest cell type that could be contributing to communication. Additionally, a lower value for this parameter is appropriate for droplet-based techniques relative to deeply-sequenced platforms like Smart-seq. Setting this parameter too high may result in the exclusion of ligands that are biologically important but either lowly expressed or expressed by a small subset of cells. The main issue in setting this parameter too low is an increase in computational requirements to analyze ligands that are unlikely to be biologically important. We therefore encourage users to test multiple thresholds to observe the robustness and impact of this parameter choice, and to err on the side of setting this parameter low. 
+  2) The number of variable genes to generate the MCA embedding for calculating a cell’s gene signature (default: 500). This value should be concordant with the total number of genes in a dataset that are expected to be upregulated by biologically active ligands. This parameter appears to have only a small impact on the results of the ligand activity ranking workflow.
+  3) The distance quantile within the MCA biplot to define a cell’s gene signature (default: 0.05). This default value indicates that the top 5% of genes nearest a cell in the MCA biplot will be considered part of that cell’s gene signature. Within the bounds tested (0.025 to 0.1), this parameter also appears to have only a small impact on the results on the ligand activity ranking workflow.
+  4) The Pearson cutoff to define an active ligand (default: 0.075). Based on benchmarking and recommendations from the author’s of NicheNet, reasonable thresholds for defining an active ligand may lie between 0.05-0.2. We encourage users to examine the distribution of all pearson coefficients and the median pearson coefficient per cell to determine if a change from the default threshold is necessary. Generally, we have found these distributions to be right-skewed, with the right tail representing putative biological activity. Supplementary Figure 12 depicts an example where a Pearson threshold of 0.075 would likely capture biologically-active ligands in a system where many unknown ligands are influencing communication. In situations where a user knows a priori that only a subset of cells are responding to very few ligands, the pearson threshold can be raised to exclude activities the user believes may be less important. 
+  5) The method for weighting the CCIM for ligand activities. Scriabin implements two different methods for weighting the CCIM based on predicted ligand activities. Method “product” (default) multiplies individual elements of the CCIM by scaled ligand activities that exceed the defined Pearson threshold. Method “sum” treats an active ligand prediction as equally valid evidence for an interaction as the expression of a corresponding receptor and sums receptor expression values and scaled ligand activities when calculating CCIM elements (see Methods). We recommend using method “product” if either of the following is true: 1) a platform with high capture/coverage (eg. Smart-seq) is used, or 2) there is a factor that decreases confidence in NicheNet’s ligand-target gene linkages (for example, analysis of a non-human dataset). If neither of these considerations apply, method “sum” represents one strategy to decrease CCIM sparsity and rescue bona fide interactions that involve lowly expressed receptors.
+
+
+![Supplementary Figure 12](vignettes/fig_s12.png)
+
+
+## (B) Selecting variable genes for gene signature calculation ##
+
+Now that we've determined what parameters we'll use for ligand activity ranking, we're one step closer to implementation. Let's now discuss the first step in implementing the ligand activity ranking workflow: selecting variable genes for gene signature calculation. 
+
+The central question in selecting variable genes is: what genes do you care about biologically that could be involved in downstream signaling responses? In other words, it all comes down to the biological question you have in mind. 
+
+For example: 
+  - if you are analyzing a longitudinal dataset of cells from multiple time points, the genes you should be interested in are the ones that are changing over time (the genes most variable between time points). 
+  - if you are analyzing a dataset where samples fall into multiple categorical groups, the genes you should be interested in are the ones most variable between those categories. 
+  - if you are analyzing a single sample, the genes you are most interested in may simply be the most highly-variable genes (ie. the output of `FindVariableFeatures` in Seurat), which typically contain genes that are the most variable between cell types in the dataset. 
+  
+In the first two situations, you will simply pass the name of the `meta.data` column containing this axis of variation to the `group.by` argument of `IDVariantGenes`. In the third situation, you may simply use the output of `VariableFeatures`. 
+
+## (C) Implementing ligand activity ranking ##
+
+Now let's finally get to an example. We will use the IFNB-stimulated PBMC dataset (which is also used in the multi-dataset vignette). 
+
+### Load packages
+
+```{r setup}
+library(Seurat)
+library(SeuratData)
+library(scriabin)
+library(tidyverse)
+```
+
+### Load the NicheNet database
+
+```{r}
+scriabin::load_nichenet_database()
+```
+
+### Read in the gene expression data
+
+```{r}
+InstallData("ifnb")
+
+ifnb <- UpdateSeuratObject(LoadData("ifnb"))
+
+ifnb <- PercentageFeatureSet(ifnb, pattern = "MT-", col.name = "percent.mt") %>%
+  SCTransform(vars.to.regress = "percent.mt", verbose = F) %>%
+  RunPCA(verbose = F) %>% 
+  FindNeighbors(dims = 1:30, verbose = F) %>%
+  FindClusters(verbose = F) %>%
+  RunUMAP(dims = 1:30, verbose = F)
+
+DimPlot(ifnb, label = T, repel = T) + NoLegend()
+DimPlot(ifnb, label = T, repel = T, group.by = "seurat_annotations") + NoLegend()
+DimPlot(ifnb, group.by = "stim")
+```
+
+Here the axis of variation of interest is the cell stimulation. Thus to identify variable genes, we will pass the name of the `meta.data` column that contains annotation of cell stimulation, `stim`.
+
+```{r}
+variant_genes <- IDVariantGenes(ifnb, group.by = "stim")
+gene_signature <- GenerateCellSignature(ifnb, variant_genes = variant_genes)
+active_ligands <- RankActiveLigands(ifnb, signature_matrix = gene_signature)
+```
+
+Let's briefly examine the distribution of the Pearson coefficients to determine a reasonable Pearson cutoff threshold. 
+
+```{r}
+PearsonDist(active_ligands)
+```
+
+Here a Pearson threshold of 0.075 is reasonable, although it would also be reasonable to increase in slightly (to 0.1) in order to capture just the rightmost shoulder observed in the plot at the right.
+
+The matrix `active_ligands` can now be passed to the `GenerateCCIM` function in order to weight ligand-receptor edges by their predicted activities. 
+

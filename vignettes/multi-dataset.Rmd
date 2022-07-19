@@ -26,6 +26,7 @@ knitr::opts_chunk$set(
 library(Seurat)
 library(SeuratData)
 library(scriabin)
+library(tidyverse)
 ```
 
 ### Load the NicheNet database
@@ -39,17 +40,16 @@ For this vignette, we will be using Seurat's IFNB stimulation dataset of PBMCs, 
 ### Read in the gene expression data
 
 ```{r}
-library(SeuratData)
 InstallData("ifnb")
 
 ifnb <- UpdateSeuratObject(LoadData("ifnb"))
 
 ifnb <- PercentageFeatureSet(ifnb, pattern = "MT-", col.name = "percent.mt") %>%
-  SCTransform(ifnb, vars.to.regress = "percent.mt", verbose = F) %>%
-  RunPCA(ifnb, verbose = F) %>% 
-  FindNeighbors(ifnb, dims = 1:30, verbose = F) %>%
-  FindClusters(ifnb, verbose = F) %>%
-  RunUMAP(ifnb, dims = 1:30, verbose = F)
+  SCTransform(vars.to.regress = "percent.mt", verbose = F) %>%
+  RunPCA(verbose = F) %>% 
+  FindNeighbors(dims = 1:30, verbose = F) %>%
+  FindClusters(verbose = F) %>%
+  RunUMAP(dims = 1:30, verbose = F)
 
 DimPlot(ifnb, label = T, repel = T) + NoLegend()
 DimPlot(ifnb, label = T, repel = T, group.by = "seurat_annotations") + NoLegend()

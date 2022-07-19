@@ -43,6 +43,13 @@ DimPlot(panc_id, group.by = "celltype", label = T, repel = T) + NoLegend()
 
 Now we find interaction programs, score them for statistical significance, and then score all single cells in the dataset on the expression of these programs
 
+
+Another important user-defined parameter in Scriabin’s workflow is the soft thresholding power (softPower) used in generating the adjacency matrix for interaction program discovery. In traditional gene correlation network analyses, soft thresholding increases the degree of gene-gene connectivity required to form a module, thereby lowering the influence of spurious correlations within the similarity matrix. The authors of WGCNA have recommended utilizing the lowest softPower that results in a scale-free topology fitting index (R2) of greater than 0.822. 
+
+Because a single ligand can interact with multiple receptors, and vice versa, the variables of a CCIM that are used to calculate the similarity matrix for WGCNA are not independent. We hypothesized that using the same soft thresholding guidelines as recommended for WGCNA may result in highly connected interaction programs where only a single ligand or receptor is represented. We thus evaluated the impact of the R2 threshold on interaction program size, composition, and statistical significance. 
+
+We found that, at the standard R2 = 0.8 threshold, the mean recommended softPower was 3, and this decreased as the R2 threshold decreased (Supplementary Figure 11D). Higher R2 thresholds were associated with smaller program sizes, particularly when R2 > 0.5, and there was a moderate increase in the percentage of programs composed of only 1 ligand or receptor with increasing R2 thresholds. Additionally, we observed that decreasing the R2 threshold led to a moderate increase in the percentage of non-statistically significant programs, indicative of spurious correlations. These data indicate that an optimal R2 threshold to avoid both spurious programs as well as programs composed of only a single ligand or receptor may lie between 0.5 and 0.75. The default R2 for interaction program discovery is now set at 0.6. 
+
 ```{r}
 #find interaction programs
 panc_ip <- InteractionPrograms(panc_id, iterate.threshold = 300)
