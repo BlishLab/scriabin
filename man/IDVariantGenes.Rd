@@ -8,7 +8,7 @@ IDVariantGenes(
   seu,
   assay = "SCT",
   slot = "data",
-  n.gene = 2000,
+  n.gene = 500,
   group.by = "orig.ident",
   filter_quality = F
 )
@@ -20,7 +20,7 @@ IDVariantGenes(
 
 \item{slot}{Which slot to use}
 
-\item{n.gene}{Number of variable genes to return}
+\item{n.gene}{Number of variable genes to return (default: 500)}
 
 \item{group.by}{Name of meta.data column corresponding to how dataset should be split.
 This corresponds to the axis of biologically interesting variation.}

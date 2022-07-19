@@ -5,7 +5,7 @@
 #' @param seu A seurat object
 #' @param assay Which assay to use
 #' @param slot Which slot to use
-#' @param n.gene Number of variable genes to return
+#' @param n.gene Number of variable genes to return (default: 500)
 #' @param group.by Name of meta.data column corresponding to how dataset should be split.
 #' This corresponds to the axis of biologically interesting variation.
 #' @param filter_quality Remove quality-associated genes like mitochondrial, ribosomal, etc.
@@ -19,7 +19,7 @@
 #' \dontrun{
 #' var_genes <- IDVariantGenes(seu)
 #' }
-IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 2000,
+IDVariantGenes <- function(seu, assay = "SCT", slot = "data", n.gene = 500,
                            group.by = "orig.ident", filter_quality = F) {
   var_genes <- AverageExpression(seu, assays = assay, slot = slot)[[assay]]
   var_genes_sd <- data.frame(x = rownames(var_genes), y = genefilter::rowSds(var_genes))
