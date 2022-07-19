@@ -108,6 +108,7 @@ ggplot(moi, aes(x = lr_pair, y = value, color = variable)) +
 ```
 
 Identify high scoring modules paired across cell types by summing average ligand and receptor program score across all cell types
+
 ```{r}
 #matrix addition at baseline will represent autocrine signaling.
 #by shuffling the row order in one matrix, we can calculate high scores across cells
@@ -118,7 +119,7 @@ for (i in 1:nrow(panc_id_ip_lig)){
 }
 
 #example distribution of ligand+receptor scores
-hist(DC_T.ip_interact[[sample(1:nrow(panc_id_ip_lig, 1))]], breaks = 30)
+hist(ip_interact[[sample(1:nrow(panc_id_ip_lig, 1))]], breaks = 30)
 
 #pick out indices in each where the sum is > 0.5 and export table
 interact.cutoff = 0.5
