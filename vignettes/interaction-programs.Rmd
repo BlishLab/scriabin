@@ -107,3 +107,28 @@ ggplot(moi, aes(x = lr_pair, y = value, color = variable)) +
   geom_point() + theme_cowplot() + ggpubr::rotate_x_text() + labs(x = NULL, y = "Intramodular\nconnectivity")
 ```
 
+Identify high scoring modules paired across cell types by summing average ligand and receptor program score across all cell types
+```{r}
+#matrix addition at baseline will represent autocrine signaling.
+#by shuffling the row order in one matrix, we can calculate high scores across cells
+ip_interact = list()
+row_orders = sapply(0:nrow(panc_id_ip_lig)-1, function(x) c((1 + x):nrow(panc_id_ip_lig), seq_len(x))) #create matrix of row shufflings
+for (i in 1:nrow(panc_id_ip_lig)){
+  ip_interact[[i]] = panc_id_ip_lig[row_orders[i,],] + panc_id_ip_rec
+}
+
+#example distribution of ligand+receptor scores
+hist(DC_T.ip_interact[[sample(1:nrow(panc_id_ip_lig, 1))]], breaks = 30)
+
+#pick out indices in each where the sum is > 0.5 and export table
+interact.cutoff = 0.5
+all.poi.list = lapply(ip_interact, function(mat){
+  hits.ind = which(mat >interact.cutoff, arr.ind = TRUE)
+  hits = data.frame(sender = rownames(mat)[hits.ind[,1]], 
+                    receiver = rownames(panc_id_ip_rec)[hits.ind[,1]],
+                    program = gsub("ligands_","", x = colnames(mat)[hits.ind[,2]]),
+                    additive.score = apply(hits.ind, 1, function(inds) mat[inds[1],inds[2]]))
+  return(hits)
+})
+all.poi = do.call(rbind, all.poi.list)
+```
