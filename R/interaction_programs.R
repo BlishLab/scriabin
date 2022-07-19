@@ -16,13 +16,14 @@
 #' @param specific logical. When TRUE, consider only the genes in each cell's predefined gene signature (see crGeneSig) as expressed. Default FALSE
 #' @param ranked_genes Cell-resolved gene signatures, used only when specific = T
 #' @param return.mat logical. Returns ligand-receptor covariance matrix and TOM along with modules and intramodular connectivity. Required for significance testing.
-#' @param softPower softPower threshold for adjacency matrix
+#' @param softPower softPower threshold for adjacency matrix. If unspecified, will be chosen automatically based on the minimum softPower that results in a scale-free topology fitting index (R^2) of greater than r2_cutoff (by default 0.6)
 #' @param min.size Minimum size of each interaction program
 #' @param plot.mods Plot modules and associated dendrograms during analysis
 #' @param tree.cut.quantile The dendrogram tree height quantile at which the dendrogram should be cut. Higher values lead to fewer, smaller modules.
 #' @param iterate.threshold When a dataset has more cells than `iterate.threshold`, the TOM will be approximated iteratively. For each iteration, a randomly subsampled dataset of size `iterate.threshold` will be used to construct the CCIM and generate the TOM.
 #' @param n.iterate For datasets larger than `iterate.threshold`, determines how many iterations to perform to approximate the TOM.
 #' @param threads To enable WGCNA multi-threading, specify the number of threads to allow. This parameter may be required when running on multiple cores
+#' @param r2_cutoff The softPower will be chosen as the minimum value that satisfies a scale-free topology fitting index (R^2) of r2_cutoff (by default: 0.6)
 #'
 #' @return When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
 #' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2 pbapply
@@ -35,6 +36,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                 iterate.threshold = 300, n.iterate = NULL,
                                 specific = F, ranked_genes = NULL,
                                 return.mat = T, softPower = NULL,
+                                r2_cutoff = 0.6,
                                 min.size = 5, plot.mods = F,
                                 tree.cut.quantile = 0.4,
                                 threads = NULL) {
@@ -148,7 +150,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   }
   if(is.null(softPower)) {
     message("Automatically selecting softPower . . .")
-    sp_det <- pickSoftThreshold.fromSimilarity(m_cor, RsquaredCut = 0.3)
+    sp_det <- pickSoftThreshold.fromSimilarity(m_cor, RsquaredCut = r2_cutoff)
     softPower = sp_det$powerEstimate
     if(is.na(softPower) | softPower>3) {
       warning("No appropriate softPower found to reach minimum scale free topology fit. Proceeding without soft thresholding, interpret results with caution")

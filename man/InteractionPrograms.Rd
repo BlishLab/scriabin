@@ -18,6 +18,7 @@ InteractionPrograms(
   ranked_genes = NULL,
   return.mat = T,
   softPower = NULL,
+  r2_cutoff = 0.6,
   min.size = 5,
   plot.mods = F,
   tree.cut.quantile = 0.4,
@@ -54,7 +55,9 @@ When recepts is supplied, ligands must also be supplied and equidimensional.}
 
 \item{return.mat}{logical. Returns ligand-receptor covariance matrix and TOM along with modules and intramodular connectivity. Required for significance testing.}
 
-\item{softPower}{softPower threshold for adjacency matrix}
+\item{softPower}{softPower threshold for adjacency matrix. If unspecified, will be chosen automatically based on the minimum softPower that results in a scale-free topology fitting index (R^2) of greater than r2_cutoff (by default 0.6)}
+
+\item{r2_cutoff}{The softPower will be chosen as the minimum value that satisfies a scale-free topology fitting index (R^2) of r2_cutoff (by default: 0.6)}
 
 \item{min.size}{Minimum size of each interaction program}
 
