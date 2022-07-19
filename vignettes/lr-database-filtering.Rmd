@@ -1,0 +1,40 @@
+---
+title: "Filtering a ligand-receptor database"
+author: "Aaron J. Wilk"
+date: "2022-07-28"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{lr-database-filtering}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Filtering a ligand-receptor database #
+
+Scriabin supports the use of 15 ligand-receptor databases for CCC analysis. These 15 databases are derived from the excellent work by Dimitrov, et al. (2022) in creating LIANA for systematic comparisons and benchmarking of CCC methods and resources. 
+
+By default, Scriabin uses the OmniPath database, which we have found contains the most robust annotation of gene category, mechanism, and literature support for each interaction. By default, Scriabin filters the OmniPath database to enforce a minimum literature support (curation effort; number of unique database - citation pairs per interaction) of >= 7. This ensures that ligand-receptor interaction that are based on prediction (rather than empirical or experimental evidence) are generally excluded from analysis. This value can be adjusted based on biological considerations of the user. 
+
+All of Scriabin's functions that require use of a ligand-receptor pair database (eg. `GenerateCCIM`, `RankActiveLigands`, `InteractionPrograms`) wrap around `LoadLR`, which loads in the ligand-receptor database in a format that can be used by the rest of the package. 
+
+If a user wishes to apply custom filters to a database, they can load that database using `LoadRawLR`. In the example below we filter the human OmniPath database to include only adhesion molecules and we prepare the output for downstream Scriabin functions. 
+
+```{r libraries}
+library(scriabin)
+library(tidyverse)
+library(magrittr)
+```
+
+```{r filtering}
+custom_filtering <- LoadRawLR(species = "human", database = "OmniPath")
+custom_filtering %<>% dplyr::filter(category_intercell_source == "adhesion", 
+                                    category_intercell_target == "adhesion")
+```
+
+When performing a custom filtering (or otherwise providing a custom ligand-receptor database), Scriabin will require that in functions that require use of a ligand-receptor pair database (eg. `GenerateCCIM`, `RankActiveLigands`, `InteractionPrograms`), `database` be set to "custom", and vectors of equal sizes corresponding to ligands and their cognate receptors be supplied to `ligands` and `recepts`, respectively.
+
+```{r export}
+ligands = custom_filtering %>% pull(source_genesymbol)
+recepts = custom_filtering %>% pull(target_genesymbol)
+```
+

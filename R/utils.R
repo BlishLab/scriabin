@@ -44,6 +44,41 @@ LoadLR <- function(species = "human", database = "OmniPath", ligands = NULL, rec
   return(lit.put)
 }
 
+#' Load unformatted ligand-receptor database
+#'
+#' @param species character. Name of species from which to load ligand-receptor databases. One of: "human", "mouse", "rat". Default: "human"
+#' @param database Name of ligand-receptor database to use. Default: "OmniPath"
+#' When species is "human", one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB
+#' When species is "mouse" or "rat", only "OmniPath" is supported.
+#' To pass a custom ligand-receptor database to this function, set database = "custom"
+#'
+#' @return Returns a dataframe containing full information for the specified LR database. If species==NULL, will return all LR databases in the package. If database==NULL, will return all databases for the given species.
+#' @import dplyr
+#' @references Turei, et al. Molecular Systems Biology (2021); Raredon, et al. bioRxiv (2021)
+#' @export
+#'
+#' @examples
+LoadRawLR <- function(species = "human", database = "OmniPath") {
+  if(is.null(species)) {
+    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))
+    message("Returning all LR databases in package")
+    return(all)
+  } else if(species %notin% c("human","mouse","rat")) {
+    stop("Only human, mouse, and rat supported as species")
+  } else {
+    all <- readRDS(system.file(package = "scriabin", "lr_resources.rds"))[[species]]
+    if(is.null(database)) {
+      message(paste0("Returning all LR databases for species: ",species))
+      return(all)
+    } else if(database %notin% names(all)) {
+      stop("Database must be one of: OmniPath, CellChatDB, CellPhoneDB, Ramilowski2015, Baccin2019, LRdb, Kirouac2010, ICELLNET, iTALK, EMBRACE, HPMR, Guide2Pharma, connectomeDB2020, talklr, CellTalkDB\nFor rat or mouse, only OmniPath is supported")
+    } else {
+      return(all[[database]])
+    }
+  }
+}
+
+
 #' Identify potential ligands for ligand activity prediction
 #'
 #' @param seu A Seurat object
