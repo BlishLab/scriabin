@@ -80,16 +80,14 @@ panc_id <- ScoreInteractionPrograms(panc_id, panc_ip_sig)
 Let's visualize average expression of these interaction programs per cell type
 
 ```{r}
-panc_id_ip_lig <- as.matrix(panc_id@meta.data %>% 
-  select("celltype",
-         starts_with("ligands")) %>%
+panc_id_ip_lig <- as.matrix(panc_id[["IPligands"]]@data %>% t() %>%
+  as.data.frame() %>% add_column(celltype = panc_id$celltype) %>%
   group_by(celltype) %>%
   summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
 Heatmap(panc_id_ip_lig, show_column_names = F, name = "Ligands")
 
-panc_id_ip_rec <- as.matrix(panc_id@meta.data %>% 
-  select("celltype",
-         starts_with("receptors")) %>%
+panc_id_ip_rec <- as.matrix(panc_id[["IPreceptors"]]@data %>% t() %>%
+  as.data.frame() %>% add_column(celltype = panc_id$celltype) %>%
   group_by(celltype) %>%
   summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
 Heatmap(panc_id_ip_rec, show_column_names = F, name = "Receptors")
@@ -122,3 +120,52 @@ Identify high scoring modules paired across cell types by summing average ligand
 ip_by_celltype <- IPCellTypeSummary(panc_id, group.by = "celltype")
 ip_by_celltype %>% group_by(sender) %>% top_n(n = 1, wt = additive.score)
 ```
+
+To perform a comparative analysis, let's use the stimulated/unstimulated PBMC dataset available through `SeuratData`
+
+```{r}
+ifnb <- UpdateSeuratObject(LoadData("ifnb"))
+
+ifnb <- PercentageFeatureSet(ifnb, pattern = "MT-", col.name = "percent.mt") %>%
+  SCTransform(vars.to.regress = "percent.mt", verbose = F) %>%
+  RunPCA(verbose = F) %>% 
+  FindNeighbors(dims = 1:30, verbose = F) %>%
+  FindClusters(verbose = F) %>%
+  RunUMAP(dims = 1:30, verbose = F)
+
+DimPlot(ifnb, label = T, repel = T) + NoLegend()
+DimPlot(ifnb, label = T, repel = T, group.by = "seurat_annotations") + NoLegend()
+DimPlot(ifnb, group.by = "stim")
+```
+
+As above, we will performed ALRA-based denoising on this dataset
+
+```{r}
+ifnb <- SeuratWrappers::RunALRA(ifnb)
+```
+
+```{r}
+ifnb_ip <- FindAllInteractionPrograms(ifnb, group.by = "stim", 
+                                      cell_types = "seurat_annotations", assay = "alra")
+ifnb_ip_sig <- InteractionProgramSignificance(ifnb_ip)
+ifnb <- ScoreInteractionPrograms(ifnb, mods = ifnb_ip_sig)
+```
+
+What interaction programs have differential expression between the conditions?
+
+```{r}
+stim_ip_ligands <- FindMarkers(ifnb, group.by = "stim", ident.1 = "STIM", assay = "IPligands")
+stim_ip_receptors <- FindMarkers(ifnb, group.by = "stim", ident.1 = "STIM", assay = "IPreceptors")
+
+#what's the program whose ligands are increasing the most in the STIM condition?
+poi <- stim_ip_ligands %>% rownames_to_column("IP") %>% 
+  top_n(n = 1, wt = avg_log2FC) %>% pull(IP)
+
+features <- ifnb_ip_sig %>% dplyr::filter(name==poi) %>%
+  separate(lr_pair, into = c("ligand","receptor"), sep = "=") %>% pull(ligand)
+
+DotPlot(ifnb, features = features, group.by = "stim")
+DotPlot(ifnb, features = features, group.by = "seurat_annotations")
+```
+
+

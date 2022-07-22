@@ -1138,11 +1138,17 @@ CCIMFeaturePlot <- function(ccim, seu,
 #'
 #' @examples
 IPFeaturePlot <- function(seu, ip, cols = c("grey90","blue","orangered3"), order = T) {
+  seu$lig_feature <- seu[["IPligands"]]@data[ip,]
+  seu$rec_feature <- seu[["IPreceptors"]]@data[ip,]
+  # p <- FeaturePlot(seu,
+  #             features = c(paste0("ligands_",ip),
+  #                          paste0("receptors_",ip)),
+  #             blend = T, combine = F,
+  #             cols = cols, order = order)
   p <- FeaturePlot(seu,
-              features = c(paste0("ligands_",ip),
-                           paste0("receptors_",ip)),
-              blend = T, combine = F,
-              cols = cols, order = order)
+                   features = c("lig_feature","rec_feature"),
+                   blend = T, combine = F,
+                   cols = cols, order = order)
   p[[3]] + NoLegend() + labs(x = NULL, y = NULL, title = NULL) +
     theme(aspect.ratio = 1,axis.ticks = element_blank(),
           axis.text = element_blank())

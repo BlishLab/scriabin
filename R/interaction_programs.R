@@ -24,8 +24,8 @@
 #' @param n.iterate For datasets larger than `iterate.threshold`, determines how many iterations to perform to approximate the TOM.
 #' @param threads To enable WGCNA multi-threading, specify the number of threads to allow. This parameter may be required when running on multiple cores
 #' @param r2_cutoff The softPower will be chosen as the minimum value that satisfies a scale-free topology fitting index (R^2) of r2_cutoff (by default: 0.6)
-#' @param group.by `meta.data` column name corresponding to cell types or clusters. If iteratively approximating the TOM, when specified the sequences of subsampled CCIM will be sampled proportionally to annotations present in this grouping.
-#' @param min.cell When `group.by` is specified, the minimum number of cells in a cell type that will be included when generating each iterative CCIM (default: 3)
+#' @param cell_types `meta.data` column name corresponding to cell types or clusters. If iteratively approximating the TOM, when specified the sequences of subsampled CCIM will be sampled proportionally to annotations present in this grouping.
+#' @param min.cell When `cell_types` is specified, the minimum number of cells in a cell type that will be included when generating each iterative CCIM (default: 3)
 #'
 #' @return When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
 #' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2 pbapply
@@ -41,7 +41,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                 r2_cutoff = 0.6,
                                 min.size = 5, plot.mods = F,
                                 tree.cut.quantile = 0.4,
-                                threads = NULL, group.by = NULL,
+                                threads = NULL, cell_types = NULL,
                                 min.cell = 3) {
   if(database=="custom") {
     if(is.null(ligands) | is.null(recepts)) {
@@ -99,14 +99,14 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
       n.rep = n.iterate
     }
     message(paste("Will perform",n.rep,"iterations to approximate TOM"))
-    if (is.null(group.by)) {
-      warning("We recommend setting a group.by parameter so that all cell types are included in each sequence of TOM generation")
+    if (is.null(cell_types)) {
+      warning("We recommend setting a cell_types parameter so that all cell types are included in each sequence of TOM generation")
     }
     mat_list <- lapply(seq_along(1:n.rep), function(z) {
 
       ## (1) Subsample proportional to cell type ##
-      if(!is.null(group.by)) {
-        sub_prop <- (object@meta.data %>% rownames_to_column("cell"))[,c("cell",group.by)]
+      if(!is.null(cell_types)) {
+        sub_prop <- (object@meta.data %>% rownames_to_column("cell"))[,c("cell",cell_types)]
         colnames(sub_prop) <- c("cell","var")
         cells <- sub_prop %>% group_by(var) %>% dplyr::mutate(prop = round(iterate.threshold*n()/nrow(.))) %>%
           dplyr::mutate(prop = ifelse(prop<min.cell,min.cell,prop)) %>% group_by(var) %>%
@@ -303,7 +303,7 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL, sim_threshold = 0.1
     d <- as.matrix(dist.binary(t(lrsum), method = 1))
     d <- 1-d^2
   }
-  names(mod_list) <- paste0("IP_",1:length(mod_list))
+  names(mod_list) <- paste0("IP-",1:length(mod_list))
   return(list(cor_mat = m_cor_list, tom = tom_list, modules = mod_list, connectivity = con_list))
 }
 
@@ -405,17 +405,20 @@ InteractionProgramSignificance <- function(ip_data, n.replicate = 10000, min.mem
 
 #' Score expression of single-cells by expression of discovered interaction programs
 #'
-#' @param seu A Seurat object
 #' @param mods Interaction program data. Either the data.frame output of `InteractionProgramSignificance`, or a list of interaction program genes, as in the output of `InteractionPrograms` or `FindAllInteractionPrograms`
+#' @param object A Seurat object to be scored
+#' @param return.assay
 #'
-#' @return Returns a Seurat object with interaction program scores as meta.data columns. Ligand and receptor expression of interaction programs are scored separately.
+#' @return A Seurat object. When `return.assay = R`, returns interaction program ligand scores as an assay `IP_ligands` and receptor scores as an assay `IP_receptors`.
+#' When `return.assay = F`, Returns a Seurat object with interaction program scores as meta.data columns. Ligand and receptor expression of interaction programs are scored separately.
 #' The scores for sender cells (ligand expression) are stored in columns named "ligands_[interaction program name]"
 #' The scores for receiver cells (receptor expression) are stored in columns named "receptors_[interaction program name]"
 #' @import dplyr stringr Seurat
 #' @export
 #'
 #' @examples
-ScoreInteractionPrograms <- function(seu, mods) {
+ScoreInteractionPrograms <- function(object, mods, return.assay = T) {
+  seu <- object
   if(class(mods)=="data.frame") {
     mod_names <- unique(mods$name)
     mods <- lapply(seq_along(1:length(mod_names)), function(x) {
@@ -437,7 +440,22 @@ ScoreInteractionPrograms <- function(seu, mods) {
 
   colnames(seu@meta.data)[grepl("^ligands",colnames(seu@meta.data))] <- paste("ligands",names(mods),sep = "_")
   colnames(seu@meta.data)[grepl("^receptors",colnames(seu@meta.data))] <- paste("receptors",names(mods),sep = "_")
-  return(seu)
+  if(return.assay) {
+    ligand_scores <- as.matrix(seu@meta.data[,grepl("^ligands",colnames(seu@meta.data))])
+    colnames(ligand_scores) <- gsub("ligands_","",colnames(ligand_scores))
+    ligand_assay <- CreateAssayObject(data = t(ligand_scores))
+
+    receptor_scores <- as.matrix(seu@meta.data[,grepl("^receptors",colnames(seu@meta.data))])
+    colnames(receptor_scores) <- gsub("receptors_","",colnames(receptor_scores))
+    receptor_assay <- CreateAssayObject(data = t(receptor_scores))
+
+    object[["IPligands"]] <- ligand_assay
+    object[["IPreceptors"]] <- receptor_assay
+    return(object)
+  } else {
+    return(seu)
+  }
+
 }
 
 
@@ -456,16 +474,21 @@ IPCellTypeSummary <- function(seu, group.by) {
   #matrix addition at baseline will represent autocrine signaling.
   #by shuffling the row order in one matrix, we can calculate high scores across cells
   ip_interact = list()
-  ip_lig <- as.matrix(seu@meta.data %>%
-                                select(group.by,
-                                       starts_with("ligands")) %>%
-                                group_by((!!sym(group.by))) %>%
+
+  ip_lig <- as.matrix(seu[["IPligands"]]@data %>% t() %>%
+                                as.data.frame() %>% add_column(celltype = seu@meta.data[,group.by]) %>%
+                                group_by(celltype) %>%
                                 summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
-  ip_rec <- as.matrix(seu@meta.data %>%
-                                select(group.by,
-                                       starts_with("receptors")) %>%
-                                group_by((!!sym(group.by))) %>%
-                                summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
+
+  # ip_lig <- as.matrix(seu@meta.data %>%
+  #                               select(group.by,
+  #                                      starts_with("ligands")) %>%
+  #                               group_by((!!sym(group.by))) %>%
+  #                               summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
+  ip_rec <- as.matrix(seu[["IPreceptors"]]@data %>% t() %>%
+                        as.data.frame() %>% add_column(celltype = seu@meta.data[,group.by]) %>%
+                        group_by(celltype) %>%
+                        summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
 
   row_orders = sapply(0:(nrow(ip_lig)-1), function(x) c((1 + x):nrow(ip_lig), seq_len(x))) #create matrix of row shufflings
   for (i in 1:nrow(ip_lig)){
