@@ -40,6 +40,8 @@ panc_fl <- SCTransform(panc_fl, verbose = F) %>%
 DimPlot(panc_fl, group.by = "celltype", label = T, repel = T) + NoLegend()
 ```
 
+We have shown that the sparsity and technical noise characteristic of many scRNA-seq platforms is propagated into the CCIM and can result in less robust single-cell CCC inferences. Therefore, when using data from sparser platforms, like common droplet-based methods, as well as non-UMI methods that are more likely to be zero inflated, we highly recommend applying denoising techniques to your data, for example, using ALRA which is available in `SeuratWrappers`. The underlying data used in this vignette (from the Fluidigm C1 platform) is not subject to these considerations as it is several orders of magnitude less sparse than droplet-based methods, and we proceed without applying denoising algorithms.
+
 Let's comprehensively examine the communicative heterogeneity that exists between beta cells as senders and all other cell types as receivers. 
 
 First we generate a cell-cell interaction matrix object. Then we scale, find variable features, run PCA and UMAP, find neighbor graphs and clusters, treating this matrix just like we would a gene expression matrix.
@@ -48,7 +50,6 @@ First we generate a cell-cell interaction matrix object. Then we scale, find var
 panc_fl_ccim <- GenerateCCIM(panc_fl, 
                              senders = colnames(panc_fl)[panc_fl$celltype=="beta"],
                              receivers = colnames(panc_fl)[panc_fl$celltype %notin% "beta"])
-panc_fl_ccim <- MapMetaData(panc_fl_ccim, seu = panc_fl)
 panc_fl_ccim <- ScaleData(panc_fl_ccim) %>% 
   FindVariableFeatures() %>%
   RunPCA() %>% 
