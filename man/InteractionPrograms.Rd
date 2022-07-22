@@ -22,7 +22,9 @@ InteractionPrograms(
   min.size = 5,
   plot.mods = F,
   tree.cut.quantile = 0.4,
-  threads = NULL
+  threads = NULL,
+  group.by = NULL,
+  min.cell = 3
 )
 }
 \arguments{
@@ -66,6 +68,10 @@ When recepts is supplied, ligands must also be supplied and equidimensional.}
 \item{tree.cut.quantile}{The dendrogram tree height quantile at which the dendrogram should be cut. Higher values lead to fewer, smaller modules.}
 
 \item{threads}{To enable WGCNA multi-threading, specify the number of threads to allow. This parameter may be required when running on multiple cores}
+
+\item{group.by}{\code{meta.data} column name corresponding to cell types or clusters. If iteratively approximating the TOM, when specified the sequences of subsampled CCIM will be sampled proportionally to annotations present in this grouping.}
+
+\item{min.cell}{When \code{group.by} is specified, the minimum number of cells in a cell type that will be included when generating each iterative CCIM (default: 3)}
 }
 \value{
 When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.

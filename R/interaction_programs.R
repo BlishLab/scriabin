@@ -24,6 +24,8 @@
 #' @param n.iterate For datasets larger than `iterate.threshold`, determines how many iterations to perform to approximate the TOM.
 #' @param threads To enable WGCNA multi-threading, specify the number of threads to allow. This parameter may be required when running on multiple cores
 #' @param r2_cutoff The softPower will be chosen as the minimum value that satisfies a scale-free topology fitting index (R^2) of r2_cutoff (by default: 0.6)
+#' @param group.by `meta.data` column name corresponding to cell types or clusters. If iteratively approximating the TOM, when specified the sequences of subsampled CCIM will be sampled proportionally to annotations present in this grouping.
+#' @param min.cell When `group.by` is specified, the minimum number of cells in a cell type that will be included when generating each iterative CCIM (default: 3)
 #'
 #' @return When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
 #' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2 pbapply
@@ -39,7 +41,8 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                 r2_cutoff = 0.6,
                                 min.size = 5, plot.mods = F,
                                 tree.cut.quantile = 0.4,
-                                threads = NULL) {
+                                threads = NULL, group.by = NULL,
+                                min.cell = 3) {
   if(database=="custom") {
     if(is.null(ligands) | is.null(recepts)) {
       stop("To use custom database, please supply equidimensional character vectors of ligands and recepts")
@@ -96,8 +99,24 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
       n.rep = n.iterate
     }
     message(paste("Will perform",n.rep,"iterations to approximate TOM"))
+    if (is.null(group.by)) {
+      warning("We recommend setting a group.by parameter so that all cell types are included in each sequence of TOM generation")
+    }
     mat_list <- lapply(seq_along(1:n.rep), function(z) {
-      cell.exprs.sub <- as.data.frame(cell.exprs[,sample(colnames(cell.exprs),iterate.threshold)]) %>% rownames_to_column(var = "gene")
+
+      ## (1) Subsample proportional to cell type ##
+      if(!is.null(group.by)) {
+        sub_prop <- (object@meta.data %>% rownames_to_column("cell"))[,c("cell",group.by)]
+        colnames(sub_prop) <- c("cell","var")
+        cells <- sub_prop %>% group_by(var) %>% dplyr::mutate(prop = round(iterate.threshold*n()/nrow(.))) %>%
+          dplyr::mutate(prop = ifelse(prop<min.cell,min.cell,prop)) %>% group_by(var) %>%
+          dplyr::sample_n(prop) %>% pull(cell)
+        cell.exprs.sub <- as.data.frame(cell.exprs[,cells]) %>% rownames_to_column(var = "gene")
+      } else {
+        cell.exprs.sub <- as.data.frame(cell.exprs[,sample(colnames(cell.exprs),iterate.threshold)]) %>% rownames_to_column(var = "gene")
+      }
+
+      ## (2) Define which ligands and receptors I'll accept on the other side ##
       cell.exprs.rec <- merge(recepts.df, cell.exprs.sub,
                               by.x = "recepts", by.y = "gene", all.x = T)
       cell.exprs.rec <- cell.exprs.rec[order(cell.exprs.rec$id),
@@ -124,16 +143,43 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
       m_cor
       # m
     })
+
+    lr_union <- unique(unlist(lapply(mat_list,rownames)))
+    mat_list_2 <- pblapply(mat_list, function(m) {
+      missing <- lr_union[lr_union %notin% rownames(m)]
+      if(length(missing)==0) {
+        return(m[lr_union,lr_union])
+      } else if(length(missing)==1) {
+        m <- rbind(m,missing=NA)
+        rownames(m)[nrow(m)] <- missing
+        m <- cbind(m,missing=NA)
+        colnames(m)[ncol(m)] <- missing
+        return(m[lr_union,lr_union])
+      } else if(length(missing)>1) {
+        add_rows <- matrix(NA, nrow = length(missing), ncol = ncol(m))
+        rownames(add_rows) <- missing
+        m <- rbind(m,add_rows)
+
+        add_cols <- matrix(NA, nrow = nrow(m), ncol = length(missing))
+        colnames(add_cols) <- missing
+        m <- cbind(m,add_cols)
+
+        return(m[lr_union,lr_union])
+      }
+    })
+    m_cor <- apply(simplify2array(mat_list_2), 1:2, function(x) {mean(x,na.rm = T)})
     # mat_list <- lapply(m_list, function(m) {
     #
     # })
     #filter to intersection
-    cor_names <- Reduce(intersect,lapply(mat_list,colnames))
-    # m <- do.call(rbind,lapply(m_list, function(x) {x[,cor_names]}))
-    # m <- m[sample(1:nrow(m),iterate.threshold^2),]
-
-    mat_list <- lapply(mat_list, function(x) {x[cor_names,cor_names]})
-    m_cor <- apply(simplify2array(mat_list), 1:2, median)
+    ## (3) Union NOT intersection ##
+    ## Fill missing rows with NA ##
+    # cor_names <- Reduce(intersect,lapply(mat_list,colnames))
+    # # m <- do.call(rbind,lapply(m_list, function(x) {x[,cor_names]}))
+    # # m <- m[sample(1:nrow(m),iterate.threshold^2),]
+    #
+    # mat_list <- lapply(mat_list, function(x) {x[cor_names,cor_names]})
+    # m_cor <- apply(simplify2array(mat_list), 1:2, median)
   }
   else {
     message(paste("\nGenerating Interaction Matrix..."))
@@ -393,3 +439,52 @@ ScoreInteractionPrograms <- function(seu, mods) {
   colnames(seu@meta.data)[grepl("^receptors",colnames(seu@meta.data))] <- paste("receptors",names(mods),sep = "_")
   return(seu)
 }
+
+
+
+#' Identify most highly expressed interaction programs by cell type
+#'
+#' @param seu A seurat object where interaction program expression has been scored by `ScoreInteractionPrograms`
+#' @param group.by `meta.data` column corresponding to the cell type or cluster annotations to use for aggregating Interaction program expression values
+#'
+#' @return A data.frame with average interaction program expression score for each cell type combination.
+#' @import dplyr tibble
+#' @export
+#'
+#' @examples
+IPCellTypeSummary <- function(seu, group.by) {
+  #matrix addition at baseline will represent autocrine signaling.
+  #by shuffling the row order in one matrix, we can calculate high scores across cells
+  ip_interact = list()
+  ip_lig <- as.matrix(seu@meta.data %>%
+                                select(group.by,
+                                       starts_with("ligands")) %>%
+                                group_by((!!sym(group.by))) %>%
+                                summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
+  ip_rec <- as.matrix(seu@meta.data %>%
+                                select(group.by,
+                                       starts_with("receptors")) %>%
+                                group_by((!!sym(group.by))) %>%
+                                summarise_if(is.numeric, mean) %>% column_to_rownames("celltype"))
+
+  row_orders = sapply(0:(nrow(ip_lig)-1), function(x) c((1 + x):nrow(ip_lig), seq_len(x))) #create matrix of row shufflings
+  for (i in 1:nrow(ip_lig)){
+    ip_interact[[i]] = ip_lig[row_orders[i,],] + ip_rec
+  }
+
+  #pick out indices in each where the sum is > 0.5 and export table
+  interact.cutoff = 0
+  all.poi.list = lapply(ip_interact, function(mat){
+    hits.ind = which(mat >interact.cutoff, arr.ind = TRUE)
+    hits = data.frame(sender = rownames(mat)[hits.ind[,1]],
+                      receiver = rownames(ip_rec)[hits.ind[,1]],
+                      program = gsub("ligands_","", x = colnames(mat)[hits.ind[,2]]),
+                      additive.score = apply(hits.ind, 1, function(inds) mat[inds[1],inds[2]]))
+    return(hits)
+  })
+  all.poi = do.call(rbind, all.poi.list)
+  return(all.poi %>% as_tibble() %>% arrange(-additive.score))
+}
+
+
+
