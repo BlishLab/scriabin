@@ -166,6 +166,7 @@ RankLigandTargets <- function(seu, signature_matrix, potential_ligands = NULL,
   }
   shared_targets <- intersect(rownames(ligand_target_matrix),colnames(dsp))
   shared_targets <- shared_targets[shared_targets %in% beg]
+  dsp <- dsp[,shared_targets]
   ltm <- ligand_target_matrix[shared_targets,]
   message("Calculating ligand-target links")
   ltl <- pblapply(seq_along(1:length(potential_ligands)), function(x) {
@@ -175,19 +176,14 @@ RankLigandTargets <- function(seu, signature_matrix, potential_ligands = NULL,
       head(ntargets) %>% min()
     ltm_vec[ltm_vec<top_n_score] <- 0
     ltm_vec <- ltm_vec[shared_targets]
-    tm <- matrix(rep(ltm_vec,ncol(dsp)), ncol = ncol(dsp))
+    tm <- matrix(rep(ltm_vec,nrow(dsp)), ncol = ncol(dsp))
     tm[dsp==0] <- 0
     colnames(tm) <- colnames(dsp)
     rownames(tm) <- rownames(dsp)
+    if(species != "human") {
+      rownames(tm) <- nichenetr::convert_human_to_mouse_symbols(rownames(tm))
+    }
     return(tm)
   })
-  if(species != "human") {
-    rownames(tm) <- nichenetr::convert_human_to_mouse_symbols(rownames(tm))
-  }
-  return(tm)
+  return(ltl)
 }
-
-
-
-
-

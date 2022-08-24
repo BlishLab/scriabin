@@ -353,7 +353,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
                                                                        sigtest_cell_types = sigtest_cell_types))
         return(sum(random_distribution>0.05)<5)
       }))
-      browser()
+      #browser()
       names(bin_p) <- unique(seu_oi$bins)
 
       anno.overlap <- t(reshape2::dcast(as.data.frame(table(as.character(seu_oi$bins),
