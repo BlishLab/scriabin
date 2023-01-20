@@ -206,6 +206,8 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     rownames(m) <- paste(cna,cnb,sep = "=")
     m <- m[,Matrix::colSums(m)>0]
     m_cor <- 0.5+(0.5*corSparse(m))
+    rownames(m_cor) <- colnames(m)
+    colnames(m_cor) <- colnames(m)
   }
   if(!is.null(threads)) {
     enableWGCNAThreads(nThreads = threads)
