@@ -90,6 +90,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   recepts.df <- data.frame(recepts)
   recepts.df$id <- 1:nrow(recepts.df)
 
+
   if(ncol(object)>iterate.threshold) {
     message("\nIteratively generating interaction matrix")
     if(is.null(n.iterate)) {
@@ -183,6 +184,20 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   }
   else {
     message(paste("\nGenerating Interaction Matrix..."))
+    cell.exprs.rec <- merge(recepts.df, cell.exprs,
+                            by.x = "recepts", by.y = "gene", all.x = T)
+    cell.exprs.rec <- cell.exprs.rec[order(cell.exprs.rec$id),
+    ]
+    cell.exprs.lig <- merge(ligands.df, cell.exprs,
+                            by.x = "ligands", by.y = "gene", all.x = T)
+    cell.exprs.lig <- cell.exprs.lig[order(cell.exprs.lig$id),
+    ]
+
+    a <- as.matrix(cell.exprs.lig[,3:ncol(cell.exprs.lig)])
+    a[is.na(a)] <- 0
+    b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
+    b[is.na(b)] <- 0
+
     m <- sqrt(as.sparse((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
     colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
     cna <- rep(colnames(object),ncol(object))
