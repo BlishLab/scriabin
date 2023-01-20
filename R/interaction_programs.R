@@ -184,11 +184,12 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   }
   else {
     message(paste("\nGenerating Interaction Matrix..."))
-    cell.exprs.rec <- merge(recepts.df, cell.exprs,
+    cell.exprs.sub <- as.data.frame(cell.exprs) %>% rownames_to_column(var = "gene")
+    cell.exprs.rec <- merge(recepts.df, cell.exprs.sub,
                             by.x = "recepts", by.y = "gene", all.x = T)
     cell.exprs.rec <- cell.exprs.rec[order(cell.exprs.rec$id),
     ]
-    cell.exprs.lig <- merge(ligands.df, cell.exprs,
+    cell.exprs.lig <- merge(ligands.df, cell.exprs.sub,
                             by.x = "ligands", by.y = "gene", all.x = T)
     cell.exprs.lig <- cell.exprs.lig[order(cell.exprs.lig$id),
     ]
