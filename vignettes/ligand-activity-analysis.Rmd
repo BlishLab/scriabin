@@ -1,0 +1,30 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+In our interaction program analysis, we found a module which displays highly specific communication from activated stellate cells to ductal cells. Can we now examine what ligands are predicted to be sensed by ductal cells that are expressed by activated stellate cells? 
+
+```{r}
+soi <- "activated_stellate" #sender of interest
+roi <- "ductal" #receiver of interest
+variant_genes <- IDVariantGenes(panc_id, group.by = "celltype")
+gene_signature <- GenerateCellSignature(panc_id, variant_genes = variant_genes)
+active_ligands <- RankActiveLigands(panc_id, signature_matrix = gene_signature)
+
+TopLigandsByIdent(panc_id, active_ligands = active_ligands, 
+                  sender = soi, receiver = roi, group.by = "celltype")
+```
+
+```{r}
+receiver_cells <- colnames(panc_id)[panc_id$celltype==roi]
+# calculates the predicted target genes within a set of receiver cells (the ductal cells) 
+PlotLigandTargetAlluvium(panc_id, signature_matrix = signature_matrix,
+                         active_ligands = active_ligands, receiver_cells = receiver_cells,
+                         ligands_of_interest = c("HLA-A","ADM","CXCL5"))
+```
+
+
+
+
+

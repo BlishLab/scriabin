@@ -68,10 +68,20 @@ When working with large datasets where it is impractical to generate a CCIM for 
 
 ```{r}
 #find interaction programs
-panc_ip <- InteractionPrograms(panc_id, iterate.threshold = 300, group.by = "celltype", assay = "alra")
+panc_ip <- FindAllInteractionPrograms(panc_id, iterate.threshold = 300, group.by = "celltype", assay = "alra", sim_threshold = 0.4)
 
 #test for interaction program significance
 panc_ip_sig <- InteractionProgramSignificance(panc_ip, n.replicate = 500)
+
+#keep IP that are significant in at least one cell type
+#in this example, all programs are significant in at least one cell type
+ip_pvals <- panc_ip_sig %>% as_tibble() %>%
+  dplyr::select(name,ends_with("pval")) %>% unique() %>%
+  pivot_longer(!name, names_to = "celltype", values_to = "pval") %>%
+  group_by(name) %>% dplyr::mutate(min_p = min(pval)) %>%
+  dplyr::select(name,min_p) %>% unique() %>% 
+  dplyr::filter(min_p < 0.05) %>% pull(name)
+panc_ip_sig %<>% dplyr::filter(name %in% ip_pvals)
 
 #score cells by expression of interaction program
 panc_id <- ScoreInteractionPrograms(panc_id, panc_ip_sig)

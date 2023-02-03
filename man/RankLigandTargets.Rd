@@ -10,6 +10,7 @@ RankLigandTargets(
   potential_ligands = NULL,
   species = "human",
   database = "OmniPath",
+  receiver_cells = NULL,
   ligands = NULL,
   recepts = NULL,
   ntargets = 250,
