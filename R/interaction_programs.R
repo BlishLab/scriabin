@@ -248,6 +248,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   colors[colors %notin% unique(module_melt$L1)] <- "grey"
 
   Alldegrees1=intramodularConnectivity(adj, colors)
+  names(modules) <- paste0("IP-",1:length(modules))
 
   if(return.mat) {
     return(list(cor_mat = m_cor, tom = tom, modules = modules, connectivity = Alldegrees1))
