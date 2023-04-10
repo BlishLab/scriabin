@@ -299,7 +299,7 @@ PlotLigandTargetAlluvium <- function(seu, signature_matrix = NULL,
     geom_flow(color = "darkgray") +
     stat_stratum(aes(fill = stratum), width = 1/3) +
     ggfittext::geom_fit_text(aes(label = stratum),
-                             stat = "stratum", width = 1/3, min.size = 3) +
+                             stat = ggalluvial::StatStratum, width = 1/3, min.size = 3) +
     theme_cowplot() +
     theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
     labs(x = NULL, y = "Regulatory weight") + NoLegend()

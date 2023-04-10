@@ -275,7 +275,7 @@ random_connectivity_test <- function(seu_oi = seu_oi,
   }))
   a <- as.vector(SNN[true_bin,true_bin])
   b <- as.vector(SNN[random_bin,random_bin])
-  return(wilcox.test(a,b,alternative = "greater")$p.value)
+  return(wilcox.test(a,b,alternative = "greater",exact=F)$p.value)
 }
 
 #' Align Datasets through binning
