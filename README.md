@@ -1,6 +1,8 @@
 # scriabin
 Single-cell resolution interaction analysis through binning
 
+NB 23 June 2023: I am currently the only person maintaining this package and am in medical school rotations. I appreciate your patience as there may be times I respond slowly to issues that are opened. 
+
 ## Goal
 Scriabin aims to provide a comprehensive view of cell-cell communication (CCC) at the single-cell level without requiring subsampling or aggregation. 
 
