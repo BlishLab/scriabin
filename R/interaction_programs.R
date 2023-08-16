@@ -109,9 +109,21 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
       if(!is.null(cell_types)) {
         sub_prop <- (object@meta.data %>% rownames_to_column("cell"))[,c("cell",cell_types)]
         colnames(sub_prop) <- c("cell","var")
-        cells <- sub_prop %>% group_by(var) %>% dplyr::mutate(prop = round(iterate.threshold*n()/nrow(.))) %>%
-          dplyr::mutate(prop = ifelse(prop<min.cell,min.cell,prop)) %>% group_by(var) %>%
-          dplyr::sample_n(prop) %>% pull(cell)
+        cells_tmp <- sub_prop %>% group_by(var) %>% dplyr::mutate(prop = as.numeric(round(iterate.threshold *
+                                                                                            n()/nrow(.)))) %>% dplyr::mutate(prop = as.numeric(ifelse(prop <
+                                                                                                                                                        min.cell, min.cell, prop))) %>% group_by(var)
+        cells_tmp = as.data.frame(cells_tmp)
+
+        cells <- c()
+        for(tmp_cell in 1:length(levels(cells_tmp$var))){
+          cell_specific_tmp = cells_tmp[cells_tmp$var == levels(cells_tmp$var)[tmp_cell],]
+          row.names(cell_specific_tmp) = cell_specific_tmp$cell
+          prop_use = cell_specific_tmp[,"prop"][1]
+
+          set.seed(123)
+          cells = c(cells, row.names(cell_specific_tmp)[sample(1:nrow(cell_specific_tmp),prop_use) ])
+        }
+
         cell.exprs.sub <- as.data.frame(cell.exprs[,cells]) %>% rownames_to_column(var = "gene")
       } else {
         cell.exprs.sub <- as.data.frame(cell.exprs[,sample(colnames(cell.exprs),iterate.threshold)]) %>% rownames_to_column(var = "gene")
