@@ -120,7 +120,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
           row.names(cell_specific_tmp) = cell_specific_tmp$cell
           prop_use = cell_specific_tmp[,"prop"][1]
 
-          set.seed(123)
+          set.seed(tmp_cell)
           cells = c(cells, row.names(cell_specific_tmp)[sample(1:nrow(cell_specific_tmp),prop_use) ])
         }
 
