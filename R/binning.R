@@ -161,6 +161,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
   new_unique <- unique(new_completion[,c("id","unique_types")])
   if(mean(new_unique$unique_types)==length(object.list)) {
     seuObj$bins <- new_ids
+    seuObj <- RenameCells(seuObj, new.names = orig_cell_names)
     return(seuObj)
   }
 
@@ -249,6 +250,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
 
   seuObj <- RenameCells(seuObj, new.names = orig_cell_names)
 
+
   return(seuObj)
 }
 
@@ -332,7 +334,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
     }
     seu_ct_split <- SplitObject(seu, split.by = coarse_cell_types)
     bin_ids <- lapply(seq_along(1:length(seu_ct_split)), function(x) {
-      seu_oi <- AlignDatasets(seuObj = seu,
+      seu_oi <- AlignDatasets(seuObj = seu_ct_split[[x]],
                               dims = dims,
                               anchor_score_threshold = anchor_score_threshold,
                               split.by = split.by,
