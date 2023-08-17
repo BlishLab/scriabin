@@ -130,11 +130,14 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
 
   ###Check completion
 
-  if(check_completion(nbs_completion)) {
-    message(paste0("Finished! Found ",length(unique(ids))," bins"))
-    seuObj$bins <- ids
-    seuObj <- RenameCells(seuObj, new.names = orig_cell_names)
-    return(seuObj)
+  if(length(check_completion(nbs_completion)) == 1){
+    if (check_completion(nbs_completion)) {
+      message(paste0("Finished! Found ", length(unique(ids)),
+                     " bins"))
+      seuObj$bins <- ids
+      seuObj <- RenameCells(seuObj, new.names = orig_cell_names)
+      return(seuObj)
+    }
   }
 
 
