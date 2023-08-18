@@ -240,7 +240,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   colnames(tom) <- rownames(tom) <- rownames(m_cor)
   geneTree = flashClust(as.dist(1-tom), method = "complete")
   dynamicMods = cutreeDynamic(dendro = geneTree,
-                              method="tree", minClusterSize = min.size, cutHeight = quantile(geneTree$height, 0.5));
+                              method="tree", minClusterSize = min.size, cutHeight = quantile(geneTree$height, tree.cut.quantile));
   dynamicColors = labels2colors(dynamicMods)
   if(plot.mods) {
     plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut", dendroLabels = FALSE, hang = 0.03, addGuide = TRUE, guideHang = 0.05, main = "Gene dendrogram and module colors")
@@ -293,7 +293,7 @@ FindAllInteractionPrograms <- function(seu, group.by = NULL, sim_threshold = 0.1
 
   seu_split <- SplitObject(seu, split.by = group.by)
   q_mods <- lapply(seu_split, function(x) {
-    InteractionPrograms(object = x, return.mat = T, ...)
+    InteractionPrograms(object = x, ...)
   })
 
   mod_list <- unlist(lapply(q_mods,function(x){x[[3]]}), recursive = F)
