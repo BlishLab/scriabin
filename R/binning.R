@@ -94,6 +94,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
   message("Optimizing number of bins . . . ")
   success = F
   n=0
+  optim_rounds = 50
   while(!success) {
     #assign cells to anchorset with highest connectivity
     ids <- apply(outerresults,1,FUN = function(i){
@@ -107,7 +108,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
     nbs_completion <- data.frame(cell=names(ids),id=ids,ident=gsub(gsub_function, "\\1", names(ids))) %>% dplyr::group_by(id) %>% dplyr::mutate(unique_types=n_distinct(ident))
     nbs_unique <- unique(nbs_completion[,c("id","unique_types")])
     success1 <- ifelse(mean(nbs_unique$unique_types)>optim_k.unique,T,F)
-    success2 <- n>50
+    success2 <- n>optim_rounds
     success <- success1|success2
     if(verbose) {
       message(paste0("Average completion score: ",mean(nbs_unique$unique_types)))
@@ -158,6 +159,7 @@ AlignDatasets <- function(seuObj, split.by = "time.orig",
   new_unique <- unique(new_completion[,c("id","unique_types")])
   if(mean(new_unique$unique_types)==length(object.list)) {
     seuObj$bins <- new_ids
+    seuObj <- RenameCells(seuObj, new.names = orig_cell_names)
     return(seuObj)
   }
 
@@ -329,7 +331,7 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
     }
     seu_ct_split <- SplitObject(seu, split.by = coarse_cell_types)
     bin_ids <- lapply(seq_along(1:length(seu_ct_split)), function(x) {
-      seu_oi <- AlignDatasets(seuObj = seu,
+      seu_oi <- AlignDatasets(seuObj = seu_ct_split[[x]],
                               dims = dims,
                               anchor_score_threshold = anchor_score_threshold,
                               split.by = split.by,
@@ -347,19 +349,18 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
 
       bin_p <- unlist(pblapply(seq_along(1:length(unique(seu_oi$bins))), FUN = function(j) {
         bin = unique(seu_oi$bins)[j]
-        random_distribution <- replicate(100, random_connectivity_test(seu_oi = seu_oi, SNN=SNN,
+        random_distribution <- replicate(20, random_connectivity_test(seu_oi = seu_oi, SNN=SNN,
                                                                        bin=bin,
                                                                        split.by = split.by,
                                                                        sigtest_cell_types = sigtest_cell_types))
-        return(sum(random_distribution>0.05)<5)
+        return(sum(random_distribution>0.05)<1)
       }))
-      browser()
       names(bin_p) <- unique(seu_oi$bins)
 
-      anno.overlap <- t(reshape2::dcast(as.data.frame(table(as.character(seu_oi$bins),
-                                                            seu_oi@meta.data[,sigtest_cell_types])),
-                                        formula = Var1~Var2,value.var = "Freq") %>% column_to_rownames(var = "Var1"))
-      anno.overlap <- t(100*anno.overlap/rowSums(anno.overlap))
+      anno.overlap <- as.matrix(t(reshape2::dcast(as.data.frame(table(as.character(seu_oi$bins),
+                                                                      as.character(seu_oi@meta.data[,sigtest_cell_types]))),
+                                                  formula = Var1~Var2,value.var = "Freq") %>% column_to_rownames(var = "Var1")))
+      anno.overlap <- t(100*prop.table(anno.overlap,2))
       bin_max <- data.frame(max=apply(anno.overlap,1,max)) %>% rownames_to_column("bin")
       exempt_bins <- bin_max %>% dplyr::filter(max>95) %>% dplyr::pull(bin)
 
@@ -417,18 +418,18 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
 
     bin_p <- unlist(pblapply(seq_along(1:length(unique(seu_oi$bins))), FUN = function(j) {
       bin = unique(seu_oi$bins)[j]
-      random_distribution <- replicate(100, random_connectivity_test(seu_oi = seu_oi, SNN=SNN,
+      random_distribution <- replicate(20, random_connectivity_test(seu_oi = seu_oi, SNN=SNN,
                                                                      bin=bin,
                                                                      split.by = split.by,
                                                                      sigtest_cell_types = sigtest_cell_types))
-      return(sum(random_distribution>0.05)<5)
+      return(sum(random_distribution>0.05)<1)
     }))
     names(bin_p) <- unique(seu_oi$bins)
 
-    anno.overlap <- t(reshape2::dcast(as.data.frame(table(as.character(seu_oi$bins),
-                                                          seu_oi@meta.data[,sigtest_cell_types])),
-                                      formula = Var1~Var2,value.var = "Freq") %>% column_to_rownames(var = "Var1"))
-    anno.overlap <- t(100*anno.overlap/rowSums(anno.overlap))
+    anno.overlap <- as.matrix(t(reshape2::dcast(as.data.frame(table(as.character(seu_oi$bins),
+                                                                    as.character(seu_oi@meta.data[,sigtest_cell_types]))),
+                                                formula = Var1~Var2,value.var = "Freq") %>% column_to_rownames(var = "Var1")))
+    anno.overlap <- t(100*prop.table(anno.overlap,2))
     bin_max <- data.frame(max=apply(anno.overlap,1,max)) %>% rownames_to_column("bin")
     exempt_bins <- bin_max %>% dplyr::filter(max>95) %>% dplyr::pull(bin)
 
@@ -451,11 +452,8 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
 
       }
     }
-
     return(seu_oi)
-
   }
-
 }
 
 #' Helper function to check completion of bins
@@ -467,7 +465,8 @@ BinDatasets <- function(seu, split.by = "time.orig", dims = 1:50,
 #'
 #' @examples
 check_completion <- function(nbs) {
-  unique(nbs$unique_types)==length(unique(nbs$ident))
+  x <- nbs$unique_types == length(unique(nbs$ident))
+  sum(x) == nrow(nbs)
 }
 
 #' Heatmap of bin-annotation overlap
@@ -489,7 +488,7 @@ check_completion <- function(nbs) {
 BinAnnotationPlot <- function(seu, cell.type.calls = "celltype.l2") {
   anno.overlap <- reshape2::dcast(as.data.frame(table(as.character(seu$bins),seu@meta.data[,cell.type.calls])),
                                   formula = Var1~Var2,value.var = "Freq") %>% column_to_rownames(var = "Var1")
-  anno.overlap <- 100*anno.overlap/rowSums(anno.overlap)
+  anno.overlap <- t(100*prop.table(anno.overlap,2))
 
   rowanno <- as.data.frame(table(as.character(seu$bins)))
   colnames(rowanno) <- c("bin","freq")
