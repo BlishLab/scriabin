@@ -17,9 +17,6 @@ BuildCompHeatmap(
 \arguments{
 \item{col.k}{}
 }
-\value{
-
-}
 \description{
 Title
 }

@@ -15,9 +15,6 @@ IPFeaturePlot(seu, ip, cols = c("grey90", "blue", "orangered3"), order = T)
 
 \item{order}{Logical. Order points so highest expressers are on top?}
 }
-\value{
-
-}
 \description{
 Plot expression of interaction programs
 }

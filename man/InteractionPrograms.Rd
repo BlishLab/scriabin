@@ -24,7 +24,8 @@ InteractionPrograms(
   tree.cut.quantile = 0.4,
   threads = NULL,
   cell_types = NULL,
-  min.cell = 3
+  min.cell = 3,
+  seed = 1111
 )
 }
 \arguments{
@@ -72,6 +73,8 @@ When recepts is supplied, ligands must also be supplied and equidimensional.}
 \item{cell_types}{\code{meta.data} column name corresponding to cell types or clusters. If iteratively approximating the TOM, when specified the sequences of subsampled CCIM will be sampled proportionally to annotations present in this grouping.}
 
 \item{min.cell}{When \code{cell_types} is specified, the minimum number of cells in a cell type that will be included when generating each iterative CCIM (default: 3)}
+
+\item{seed}{Seed (default: 1111)}
 }
 \value{
 When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.

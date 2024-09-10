@@ -22,9 +22,6 @@ scInteraction(
 \arguments{
 \item{cluster_resolution}{}
 }
-\value{
-
-}
 \description{
 Title
 }

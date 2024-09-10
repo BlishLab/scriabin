@@ -9,9 +9,6 @@ FormatCircuits(all_circuits = NULL, all.tps = NULL)
 \arguments{
 \item{all.tps}{}
 }
-\value{
-
-}
 \description{
 Stitch multi-timepoint circuits together
 }

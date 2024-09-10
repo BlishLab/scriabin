@@ -9,9 +9,6 @@ AssembleInteractionGraphs(seu, by = "weighted", split.by = "time.orig")
 \arguments{
 \item{split.by}{}
 }
-\value{
-
-}
 \description{
 Title
 }

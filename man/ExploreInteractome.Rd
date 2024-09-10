@@ -9,9 +9,6 @@ ExploreInteractome(seu, ranked_genes, send_cells, rec_cells, name = NULL)
 \arguments{
 \item{name}{}
 }
-\value{
-
-}
 \description{
 Title
 }

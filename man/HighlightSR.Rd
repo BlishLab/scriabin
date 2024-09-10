@@ -9,9 +9,6 @@ HighlightSR(seu, interactome, subset.time = NULL)
 \arguments{
 \item{subset.time}{}
 }
-\value{
-
-}
 \description{
 Title
 }

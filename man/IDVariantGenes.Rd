@@ -27,9 +27,6 @@ This corresponds to the axis of biologically interesting variation.}
 
 \item{filter_quality}{Remove quality-associated genes like mitochondrial, ribosomal, etc.}
 }
-\value{
-
-}
 \description{
 Identify genes variable across axis of interest
 }

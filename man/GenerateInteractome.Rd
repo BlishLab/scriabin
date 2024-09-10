@@ -24,9 +24,6 @@ GenerateInteractome(
 \arguments{
 \item{database}{}
 }
-\value{
-
-}
 \description{
 Title
 }

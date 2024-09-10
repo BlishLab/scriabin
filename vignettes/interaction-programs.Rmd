@@ -20,6 +20,7 @@ library(scriabin)
 library(tidyverse)
 library(ComplexHeatmap)
 library(cowplot)
+library(magrittr)
 ```
 
 We will find 
@@ -114,6 +115,7 @@ IPFeaturePlot(panc_id, ip = poi)
 DimPlot(panc_id, group.by = "celltype", label = T, repel = T) + NoLegend()
 ```
 
+
 In this module we see highly specific ligand expression by activated stellate cells which send to endothelial cells. Let's take a look at the genes within this module. 
 
 ```{r}
@@ -164,18 +166,17 @@ ifnb <- ScoreInteractionPrograms(ifnb, mods = ifnb_ip_sig)
 What interaction programs have differential expression between the conditions?
 
 ```{r}
-stim_ip_ligands <- FindMarkers(ifnb, group.by = "stim", ident.1 = "STIM", assay = "IPligands")
-stim_ip_receptors <- FindMarkers(ifnb, group.by = "stim", ident.1 = "STIM", assay = "IPreceptors")
+stim_ip_ligands <- FindMarkers(ifnb, group.by = "stim", ident.1 = "STIM", assay = "IPligands", test.use = "wilcox_limma")
+stim_ip_receptors <- FindMarkers(ifnb, group.by = "stim", ident.1 = "STIM", assay = "IPreceptors", test.use = "wilcox_limma")
 
 #what's the program whose ligands are increasing the most in the STIM condition?
 poi <- stim_ip_ligands %>% rownames_to_column("IP") %>% 
   top_n(n = 1, wt = avg_log2FC) %>% pull(IP)
 
 features <- ifnb_ip_sig %>% dplyr::filter(name==poi) %>%
-  separate(lr_pair, into = c("ligand","receptor"), sep = "=") %>% pull(ligand)
+  separate(lr_pair, into = c("ligand","receptor"), sep = "=") %>% pull(ligand) %>% unique()
 
 DotPlot(ifnb, features = features, group.by = "stim")
 DotPlot(ifnb, features = features, group.by = "seurat_annotations")
 ```
-
 

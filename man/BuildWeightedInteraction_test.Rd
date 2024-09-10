@@ -19,9 +19,6 @@ BuildWeightedInteraction_test(
 \arguments{
 \item{recepts}{}
 }
-\value{
-
-}
 \description{
 Title
 }

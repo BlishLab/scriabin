@@ -13,9 +13,6 @@ BinCompositionAnalysis(seu, split.by = "time.orig", fill.colors = NULL)
 
 \item{fill.colors}{Character of colors for each sub-dataset ID}
 }
-\value{
-
-}
 \description{
 Plot composition of each bin
 }

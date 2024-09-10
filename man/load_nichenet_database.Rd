@@ -6,9 +6,6 @@
 \usage{
 load_nichenet_database()
 }
-\value{
-
-}
 \description{
 Load NicheNet Database
 }

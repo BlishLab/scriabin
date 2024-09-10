@@ -6,9 +6,6 @@
 \usage{
 ... \%notin\% NA
 }
-\value{
-
-}
 \description{
 Convenient negation
 }

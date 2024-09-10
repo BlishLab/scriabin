@@ -15,9 +15,6 @@ PrioritizeLigands(
 \arguments{
 \item{slot}{}
 }
-\value{
-
-}
 \description{
 Title
 }

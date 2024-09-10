@@ -26,9 +26,6 @@ FindAllCircuits(
 
 \item{subsample.n}{numeric. If subsample=T, subsample circuits from each timepoint pair to this level}
 }
-\value{
-
-}
 \description{
 Find all circuits in a multi-timepoint longitudinal dataset
 }

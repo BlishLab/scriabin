@@ -26,6 +26,7 @@
 #' @param r2_cutoff The softPower will be chosen as the minimum value that satisfies a scale-free topology fitting index (R^2) of r2_cutoff (by default: 0.6)
 #' @param cell_types `meta.data` column name corresponding to cell types or clusters. If iteratively approximating the TOM, when specified the sequences of subsampled CCIM will be sampled proportionally to annotations present in this grouping.
 #' @param min.cell When `cell_types` is specified, the minimum number of cells in a cell type that will be included when generating each iterative CCIM (default: 3)
+#' @param seed Seed (default: 1111)
 #'
 #' @return When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
 #' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2 pbapply
@@ -42,7 +43,8 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                 min.size = 5, plot.mods = F,
                                 tree.cut.quantile = 0.4,
                                 threads = NULL, cell_types = NULL,
-                                min.cell = 3) {
+                                min.cell = 3, seed = 1111) {
+  set.seed(seed)
   if(database=="custom") {
     if(is.null(ligands) | is.null(recepts)) {
       stop("To use custom database, please supply equidimensional character vectors of ligands and recepts")
@@ -77,12 +79,12 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     ranked_mat <- as.matrix(reshape2::dcast(reshape2::melt(t(bind_rows(ranked_names))), formula = value~Var1) %>% column_to_rownames("value"))
     genes.use <- intersect(genes.use,rownames(ranked_mat))
     ranked_mat <- ranked_mat[genes.use,]
-    cell.exprs <- GetAssayData(object, assay = assay, slot = slot)[genes.use,]
+    cell.exprs <- GetAssayData(object, assay = assay, layer = slot)[genes.use,]
     cell.exprs[is.na(ranked_mat)] <- 0
     cell.exprs <- as.data.frame(cell.exprs) %>% rownames_to_column(var = "gene")
   }
   else {
-    cell.exprs <- GetAssayData(object, assay = assay, slot = slot)[genes.use,]
+    cell.exprs <- GetAssayData(object, assay = assay, layer = slot)[genes.use,]
   }
 
   ligands.df <- data.frame(ligands)
@@ -109,9 +111,17 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
       if(!is.null(cell_types)) {
         sub_prop <- (object@meta.data %>% rownames_to_column("cell"))[,c("cell",cell_types)]
         colnames(sub_prop) <- c("cell","var")
-        cells <- sub_prop %>% group_by(var) %>% dplyr::mutate(prop = round(iterate.threshold*n()/nrow(.))) %>%
-          dplyr::mutate(prop = ifelse(prop<min.cell,min.cell,prop)) %>% group_by(var) %>%
-          dplyr::sample_n(prop) %>% pull(cell)
+
+        cell_props <- sub_prop %>% group_by(var) %>% dplyr::mutate(prop = round(iterate.threshold*n()/nrow(.))) %>%
+          dplyr::mutate(prop = ifelse(prop<min.cell,min.cell,prop)) %>%
+          dplyr::select(var,prop) %>% unique()
+
+        cells <- sub_prop %>% group_by(var) %>%
+          nest() %>% full_join(.,cell_props, by = "var") %>%
+          dplyr::mutate(samp = map2(data, prop, sample_n)) %>%
+          dplyr::select(-data) %>%
+          unnest(samp) %>% pull(cell)
+
         cell.exprs.sub <- as.data.frame(cell.exprs[,cells]) %>% rownames_to_column(var = "gene")
       } else {
         cell.exprs.sub <- as.data.frame(cell.exprs[,sample(colnames(cell.exprs),iterate.threshold)]) %>% rownames_to_column(var = "gene")

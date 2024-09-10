@@ -15,9 +15,6 @@ mapvalues(x, from, to, warn_missing = TRUE)
 
 \item{warn_missing}{print a message if any of the old values are not present in x}
 }
-\value{
-
-}
 \description{
 Mapvalues (ripped from plyr)
 }

@@ -9,9 +9,6 @@ BuildRVHeatmap(interaction_graphs, name = "rv_results")
 \arguments{
 \item{name}{}
 }
-\value{
-
-}
 \description{
 Title
 }

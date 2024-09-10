@@ -9,9 +9,6 @@ PlotAlluviumLigRec(connectome)
 \arguments{
 \item{connectome}{}
 }
-\value{
-
-}
 \description{
 Title
 }

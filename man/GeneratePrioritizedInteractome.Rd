@@ -26,9 +26,6 @@ GeneratePrioritizedInteractome(
 \arguments{
 \item{database}{}
 }
-\value{
-
-}
 \description{
 Title
 }

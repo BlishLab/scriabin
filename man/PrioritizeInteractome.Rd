@@ -29,11 +29,6 @@ PrioritizeInteractome(
 \arguments{
 \item{rec_cells}{}
 }
-\value{
-
-
-
-}
 \description{
 Title
 

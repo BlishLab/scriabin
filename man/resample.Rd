@@ -6,9 +6,6 @@
 \usage{
 resample(x, ...)
 }
-\value{
-
-}
 \description{
 Resampling
 }

@@ -21,9 +21,6 @@ ExploreClusters(
 \arguments{
 \item{...}{}
 }
-\value{
-
-}
 \description{
 Title
 }

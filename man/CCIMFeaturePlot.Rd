@@ -15,9 +15,6 @@ CCIMFeaturePlot(
 \arguments{
 \item{...}{}
 }
-\value{
-
-}
 \description{
 Title
 }

@@ -9,9 +9,6 @@ PlotAlluviumLT(connectome, optimize.flows = T, colors = NULL)
 \arguments{
 \item{colors}{}
 }
-\value{
-
-}
 \description{
 Plot Alluvial of ligand-target links
 }

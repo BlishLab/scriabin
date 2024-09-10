@@ -9,9 +9,6 @@ PlotAlluvium(connectome, optimize.flows = T, cell.cols = NULL)
 \arguments{
 \item{cell.cols}{}
 }
-\value{
-
-}
 \description{
 Title
 }

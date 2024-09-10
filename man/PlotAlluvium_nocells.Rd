@@ -9,9 +9,6 @@ PlotAlluvium_nocells(connectome, optimize.flows = T)
 \arguments{
 \item{optimize.flows}{}
 }
-\value{
-
-}
 \description{
 Title
 }

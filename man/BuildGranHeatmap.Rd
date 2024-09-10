@@ -16,9 +16,6 @@ BuildGranHeatmap(
 \arguments{
 \item{cell.type.calls}{}
 }
-\value{
-
-}
 \description{
 Title
 }

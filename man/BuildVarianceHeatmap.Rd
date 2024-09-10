@@ -17,9 +17,6 @@ BuildVarianceHeatmap(
 \arguments{
 \item{cell.cols}{}
 }
-\value{
-
-}
 \description{
 Title
 }
