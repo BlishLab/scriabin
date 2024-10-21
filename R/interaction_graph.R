@@ -210,7 +210,18 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
 
   message(paste("Calculating CCIM between",length(senders),"senders and",length(receivers),"receivers"))
   message(paste("\nGenerating Interaction Matrix..."))
-  m <- sqrt(as.sparse((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
+  sv.cbind <- function (input) {
+    # stolen from https://stackoverflow.com/a/30089750
+    thelength <- unique(sapply(input,length))
+    stopifnot( length(thelength)==1 )
+    return( sparseMatrix(
+            x=unlist(lapply(input, function(s) slot(s, "x"))),
+            i=unlist(lapply(input, function(s) slot(s, "i"))),
+            p=c(0,cumsum(sapply(input,function(x){length(x@x)}))),
+            dims=c(thelength,length(input))
+        ) )
+    }
+  m <- sqrt(sv.cbind(pblapply(1:nrow(a), function(i) as(as.numeric(tcrossprod(a[i, ], b[i, ])), "dsparseVector"))))
 
   colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
   cna <- rep(senders,length(receivers))
@@ -536,5 +547,3 @@ BuildWeightedInteraction <- function (object, nichenet_results, assay = "SCT", s
   object[[graph_name]] <- results
   return(object)
 }
-
-
